@@ -251,6 +251,8 @@ textarea.big{width:100%;min-height:240px;font:13px/1.4 ui-monospace,Menlo,Consol
   .hero,.facgrid,.netwrap{grid-template-columns:minmax(0,1fr)}
   .trio{grid-template-columns:minmax(0,1fr)}
   .strip{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .strip.s6{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ovgrid{grid-template-columns:minmax(0,1fr)}
   .st:nth-child(odd){border-left:0}
   .st{border-top:1px solid var(--line)}
 }
@@ -265,6 +267,7 @@ textarea.big{width:100%;min-height:240px;font:13px/1.4 ui-monospace,Menlo,Consol
   .rail-foot span{display:none}
   main{padding:16px 14px 50px}
   .duo{grid-template-columns:minmax(0,1fr)}
+  .ov .ovt{grid-template-columns:repeat(2,minmax(0,1fr))}
   h1{font-size:30px}
   .fgrid{grid-template-columns:minmax(0,1fr)}
   .marking{font-size:11px}
@@ -299,6 +302,35 @@ ul.notes li{margin:3px 0}
 .an-controls input[type=search]{min-width:240px}
 ul.people{margin:0;padding-left:16px}
 ul.people li{margin:2px 0}
+.quick{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 0;margin:0 0 14px;background:var(--paper);border-bottom:1px solid var(--line)}
+.quick .lbl,.sortbar .lbl{font-size:13px;color:var(--ink-2)}
+.qlink{display:inline-flex;gap:8px;align-items:center;border:1px solid var(--line-strong);background:var(--surface);border-radius:999px;padding:5px 12px;font:inherit;font-size:14px;cursor:pointer;color:var(--ink)}
+.qlink b{font-weight:600;background:var(--surface-2);border-radius:999px;padding:0 8px;font-size:13px}
+.qlink:hover{border-color:var(--steel)}
+.qlink.off{opacity:.6}
+.sec[id]{scroll-margin-top:64px}
+.sortbar{align-items:center}
+.seg{display:inline-flex}
+.segb{border:1px solid var(--line-strong);background:var(--surface);padding:4px 10px;font:inherit;font-size:13px;cursor:pointer;color:var(--ink)}
+.segb:first-child{border-radius:4px 0 0 4px}
+.segb:last-child{border-radius:0 4px 4px 0;border-left:0}
+.segb.on{background:var(--steel);border-color:var(--steel);color:var(--on-steel)}
+.revnav{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:8px 0 6px;padding:6px 10px;background:var(--amber-soft);border:1px solid var(--amber);border-radius:4px;font-size:14px;color:var(--amber-ink)}
+.revnav .rn{display:flex;gap:6px}
+.ctxbox{max-height:250px;overflow:auto;margin:8px 0 12px;padding:10px 12px;border:1px solid var(--line-strong);border-left:4px solid var(--steel);border-radius:4px;background:var(--surface-2);font-size:14px}
+.ctxbox p{margin:4px 0}
+.ctxbox .ctxh{margin-bottom:4px}
+.mfilter{width:100%;margin:6px 0;padding:5px 8px;box-sizing:border-box}
+.ovgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:30px;margin-bottom:30px}
+.ov .ovh{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.ov .ovt{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:8px 0 10px}
+.ov .ovt>div{border-left:3px solid var(--line-strong);padding:2px 0 2px 9px;min-width:0}
+.ov .ovt .v{font:600 24px 'Barlow Condensed','Arial Narrow',sans-serif;overflow-wrap:anywhere}
+.ov .ovt .l{font-size:12px;color:var(--ink-2)}
+.ov h3{margin-top:14px}
+.ov ul.attn{list-style:none;margin:6px 0 10px;padding:0}
+.ov ul.attn li{padding:4px 0;border-bottom:1px solid var(--line);font-size:14px}
+.strip.s6{grid-template-columns:repeat(6,minmax(0,1fr))}
 </style>
 <script>/* SheetJS 0.18.5 (Apache-2.0) -- embedded so the app works offline */
 /*! xlsx.js (C) 2013-present SheetJS -- http://sheetjs.com */
@@ -899,7 +931,7 @@ function getter(row){const map={};Object.keys(row).forEach(k=>{map[k.trim().toLo
 /* Only problems a person has to resolve flag an entry for review. Everything the app fixed
    or noted with confidence (a corrected report number, a voided number, a repaired column)
    is shown on the entry as a note instead. */
-const REVIEW_FLAGS=['CategoryMissing','TimestampBad','ShiftMissing','DuplicateReportID'];
+const REVIEW_FLAGS=['CategoryMissing','TimestampBad','ShiftMissing','DuplicateReportID','MultipleUnits'];
 function needsReview(r){if(r.Reviewed==='Y')return false;const f=(r.QualityFlags||'').split(';');return REVIEW_FLAGS.some(x=>f.includes(x))}
 
 /* ---- one heading, several places ----
@@ -954,6 +986,16 @@ const DOCNUM_BEFORE=/(W\/O|WORK\s*ORDER|FIR|CASE|REPORT|ORDER|TICKET|GRIEVANCE|I
 const RANK_BEFORE=/\b(SGT|SERGEANT|CPL|CORPORAL|LT|LIEUTENANT|CAPT|CAPTAIN|DEPUTY|DEP|OFFICER|OFC|INV|INVESTIGATOR|D\.?O|LVN|RN|NP|LPN|TECH|TECHNICIAN|MAJ|MAJOR|CHIEF|CMDR|COMMANDER|NURSE|DR|CO)\.?\s*$/i;
 const nameCase=s=>s===s.toUpperCase()?s.toLowerCase().replace(/(^|[\s'’-])([a-z])/g,(m,a,b)=>a+b.toUpperCase()):s;
 const NAME_STOP=/^(INMATE|INMATES|UNIT|INTAKE|DEP|DEPUTY|OFFICER|WORKER|CELLMATE|THE|AND|OF|BY|WITH|THAT|AP)$/i;
+/* Work orders ("W/O #1000001", "WO #1000001", "Work Order #1000001") and BCSO case numbers
+   ("Case #2026-BCSO-000001", "Assignment Report #2026-BCSO-000001"), kept so they can be searched. */
+function extractRefs(text){
+  text=S(text);const wo=new Set(),cs=new Set();
+  const tidy=x=>x.toUpperCase().replace(/[-.]+$/,'');
+  for(const m of text.matchAll(/\b(?:W\/O|WO|WORK\s*ORDER)\b\s*(?:NO\.?|NUMBER|#)?\s*[#$]*\s*(\d{5,8})(?!\d)/gi))wo.add(m[1]);
+  for(const m of text.matchAll(/\b(?:CASE|ASSIGNMENT(?:\s+REPORT)?|OFFENSE\s+REPORT)\b\s*(?:NO\.?|NUMBER|#)?\s*[#$]*\s*([0-9A-Z]{2,5}-[0-9A-Z-]{2,14})/gi)){const v=tidy(m[1]);if(/\d/.test(v))cs.add(v)}
+  for(const m of text.matchAll(/(?:^|[^0-9A-Za-z-])(\d{4,5}-BCSO-\d{3,7}|BCSO-\d{4}-\d{3,7})(?![0-9A-Za-z])/gi))cs.add(tidy(m[1]));  // no lookbehind: older Safari rejects it
+  return{wo:[...wo],cs:[...cs]};
+}
 function extractPeople(text){
   const out=new Map();text=S(text);
   const W="[A-Z][A-Za-z'’-]+";
@@ -977,8 +1019,13 @@ function extractPeople(text){
     // a number with no name after a work-order / vehicle / report word is not a person
     if(!name&&/(W\/?O|WORK\s*ORDER|ATV|VEHICLE|RADIO|KEY|FIR|CASE|REPORT|TICKET)\b[^.]{0,30}\.?\s*$/i.test(pre))continue;
     if(bk.length<6&&!/inmate/i.test(pre.slice(-45)))continue;
+    // "Inmate J. Doe #1000001" (or the next name in "Inmates J. Doe #1000001 and R. Roe #1000002"): the word
+    // inmate / cellmate sits in the same sentence. A period after a capital letter is an initial, not a sentence end.
+    const seg=pre.slice(-80),cuts=[...seg.matchAll(/[a-z0-9)]\.\s+(?=[A-Z])/g)],cut=cuts.length?cuts[cuts.length-1]:null,sentence=cut?seg.slice(cut.index+cut[0].length):seg;
+    const inm=!!name&&bk.length>=6&&/\b(inmates?|cellmates?)\b/i.test(sentence);
     const cur=out.get(bk);
-    if(!cur)out.set(bk,{bk,name});else if(name&&(!cur.name||cur.name.length<name.length&&!/\./.test(name)))cur.name=name;
+    if(!cur)out.set(bk,{bk,name,inm});
+    else{if(name&&(!cur.name||cur.name.length<name.length&&!/\./.test(name)))cur.name=name;if(inm)cur.inm=true}
   }
   return [...out.values()];
 }
@@ -1018,7 +1065,10 @@ function cleanRows(rows,opt){
     const et=eventType(sub,summary);
     if(!cat){const inf=/RESTRICTED/.test(sub)?'RESTRICTED':({'CODE-TWO':'SECURITY',INCOMPATIBLE:'SECURITY',DISRUPTIVE:'SECURITY','CONTRABAND-FOUND':'SECURITY','HOUSING-REFUSAL':'SECURITY','CODE-DRILL':'SECURITY','SUICIDE-RISK':'MEDICAL','CODE-ONE':'MEDICAL','HOSPITAL-TRANSPORT':'MEDICAL',INJURY:'MEDICAL',DEATH:'MEDICAL','EMERGENCY-DETENTION':'MEDICAL','FLOOR-MANAGEMENT':'INFORMATION',STAFFING:'INFORMATION',INSPECTION:'INFORMATION',RECREATION:'INFORMATION'}[et]||'');if(inf){cat=inf;flags.push('CategoryInferred')}}
     if(!locNorm)flags.push('LocationMissing');else if(!zone){zone='UNMAPPED';flags.push('LocationUnmapped')}
+    // Several housing units in one heading (Unit 1A, Unit 2A) are all kept, and the entry is flagged so someone confirms it belongs to each.
+    if(L.zones.filter(z=>/^U-/.test(z)).length>1)flags.push('MultipleUnits');
     const people=extractPeople(S(g('Inmates/Subjects'))+' . '+summary+' . '+actions);
+    const refs=extractRefs(summary+' . '+actions);
     const ids=people.map(p=>p.bk);
     const force=(FORCE_YES.test(sub)&&!FORCE_NO.test(sub))?'Y':'N';
     const textAll=(sub+' '+summary+' '+actions).toUpperCase();
@@ -1032,7 +1082,7 @@ function cleanRows(rows,opt){
     const rec={ReportID:rid,OccurredAt:iso,Shift:sm?sm[1]:'',Category:cat?titleCase(cat):'',Subcategory:sub,EventType:etFinal,UseOfForce:force,
       LocationRaw:locRaw,LocationNorm:locNorm,ZoneCode:zone,ZoneCodes:L.zones.join(';'),Locations:L.labels.join(', '),SubAreas:L.subAreas.join('; '),
       AreasMentioned:[...new Set(NARRATIVE_AREAS.filter(([re])=>re.test(summary+' '+actions)).map(x=>x[1]))].filter(a=>!L.subAreas.includes(a)).join('; '),
-      People:full?people:[],ParseVer:3,IsIncident:INCIDENT.has(etFinal)?'Y':'N',HandlingMode:mode,
+      People:full?people:[],WorkOrders:refs.wo.join('; '),CaseNumbers:refs.cs.join('; '),ParseVer:4,IsIncident:INCIDENT.has(etFinal)?'Y':'N',HandlingMode:mode,
       SubjectIDs:full?ids.join(';'):'',Summary:full?summary.replace(DOB,'DOB [removed]'):'',ActionsTaken:full?actions.replace(DOB,'DOB [removed]'):'',
       ReportingOfficer:(opt.keepOfficers&&full)?S(g('ReportingOfficer')):'',Badge:(opt.keepOfficers&&full)?S(g('Badge')):'',
       CandidateFind:full?cand:'N',CandidateType:full?ctype:'',SourceFile:S(g('SourceFile')),TimeRaw:S(g('TimeRaw')),Seq:g('Seq')==null?'':g('Seq'),RefAsWritten:S(g('RefAsWritten')),Amendment:g('Amendment')?'Y':'',DutyDate:duty,PrevEvening:g('PrevEvening')?'Y':''};
@@ -1362,7 +1412,7 @@ function parseDocBlotter(CFB,bytes,filename){
   return docxRowsFromHtml(blotterHtmlFromDocText(docMainText(CFB,bytes)),filename);
 }
 
-return{cleanRows,zoneTable,report,parseTs,normLoc,eventType,parseDocxBlotter,docxRowsFromHtml,parseDocBlotter,needsReview,setCustomZones,sameEntry,isWordSource,parseLocations,extractPeople,zoneLabel,NARRATIVE_AREAS};
+return{cleanRows,zoneTable,report,parseTs,normLoc,eventType,parseDocxBlotter,docxRowsFromHtml,parseDocBlotter,needsReview,setCustomZones,sameEntry,isWordSource,parseLocations,extractPeople,extractRefs,zoneLabel,NARRATIVE_AREAS};
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=BLC;
 
@@ -1661,7 +1711,8 @@ function seedData(){
 /* ================= state & storage ================= */
 const KEY='dims.v1';
 function loadState(){try{const s=localStorage.getItem(KEY);if(s){const o=JSON.parse(s);if(o&&o.v===1&&Array.isArray(o.reports)&&Array.isArray(o.contraband))return o}}catch(e){}return null}
-function persist(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+let SUBJ_IDX=null,SUBJ_IDX_S=null; // booking number -> subject, rebuilt after any save
+function persist(){SUBJ_IDX=null;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 let S=loadState()||seedData();
 function log(action,ref){S.audit.unshift({t:new Date().toISOString(),who:'Analyst (demo)',action,ref});S.audit=S.audit.slice(0,300);persist()}
 
@@ -1744,7 +1795,7 @@ function patterns(){
 
 /* ================= UI state ================= */
 const ui={route:'overview',layer:'risk',zone:null,range:'90',
-  f:{reports:{q:'',status:'',cat:'',prio:''},contraband:{q:'',type:'',method:'',zone:''},subjects:{q:'',type:'',watch:''},vulns:{status:'Open'}},
+  f:{reports:{q:'',status:'',cat:'',prio:''},contraband:{q:'',type:'',method:'',zone:''},subjects:{q:'',type:'',watch:'',origin:'',limit:150},vulns:{status:'Open'}},
   net:{paths:true,zones:false,blotter:false,min:1,sel:null,pos:{},sig:''},stack:[]};
 let SAMPLE=null,DL=null,GRAPH=null;
 
@@ -1905,8 +1956,49 @@ function netSide(G){
 /* ================= pages ================= */
 const PAGES={},LISTS={};
 
+/* ---- Overview: the four areas side by side ---- */
+const ovTile=(v,l,d)=>`<div><div class="v">${v}</div><div class="l">${l}</div>${d?`<div class="l">${d}</div>`:''}</div>`;
+const ovPanel=(title,route,link,body)=>`<section class="sec ov"><div class="ovh"><h2>${title}</h2><button class="lnk" data-act="nav" data-r="${route}">${link} →</button></div>${body}</section>`;
+const ovDelta=(a,b)=>{const d=a-b;return `<span class="${d>0?'up':d<0?'down':''}">${d>0?'+':d<0?'-':''}${Math.abs(d)}</span> vs prior 30 days`};
+function ovFacility(){
+  const st=Object.values(zoneStats()),top=st.filter(s=>s.risk>0).sort((a,b)=>b.risk-a.risk).slice(0,4);
+  const openV=S.vulns.filter(v=>v.status!=='Closed'),hi=openV.filter(v=>v.severity==='High'||v.severity==='Critical');
+  const bySev=SEVS.slice().reverse().map(k=>({k,v:openV.filter(v=>v.severity===k).length})).filter(x=>x.v);
+  const facs=[...new Set(ZONES.map(z=>z.fac).filter(Boolean))];
+  let blot='';
+  if(typeof blFacOf==='function'&&B&&B.rows.length){
+    const fo=blFacOf(),m={};
+    B.rows.forEach(e=>{if(e.IsIncident!=='Y'||!blIn(e,0,30))return;new Set((blZonesOf(e).length?blZonesOf(e):['']).map(z=>fo[z]||'Unmapped')).forEach(f=>m[f]=(m[f]||0)+1)});
+    const items=Object.entries(m).sort((a,b)=>b[1]-a[1]).map(([k,v])=>({k,v}));
+    blot=`<h3>Blotter incidents by facility, 30 days</h3>${hbars(items)}`;
+  }
+  return ovPanel('Facility','facility','Open Facility',`<div class="ovt">${ovTile(ZONES.length,'Areas tracked',facs.length+' facilit'+(facs.length===1?'y':'ies'))}${ovTile(openV.length,'Open vulnerabilities',hi.length+' high or critical')}${ovTile(top.length?top[0].risk:0,'Highest area risk',top.length?esc(top[0].z.name):'No risk recorded')}${ovTile(st.filter(s=>s.risk>0).length,'Areas with any risk','Finds, reports and vulnerabilities')}</div>
+   <h3>Highest-risk areas</h3>${top.length?top.map(s=>`<button class="qrow" data-act="zone" data-id="${s.z.id}"><span class="t"><b>${esc(s.z.name)}</b><small>${s.cb30} find${s.cb30===1?'':'s'} in 30 days, ${s.vuln} open vulnerabilit${s.vuln===1?'y':'ies'}</small></span><span class="num">${s.risk}</span></button>`).join(''):'<p class="sub">No area has any recorded risk yet.</p>'}
+   <h3>Open vulnerabilities by severity</h3>${hbars(bySev)}${blot}`);
+}
+function ovContraband(){
+  const f30=S.contraband.filter(c=>age(c.date)<=30),c60=S.contraband.filter(c=>inRange(c.date,30,60)),f90=S.contraband.filter(c=>age(c.date)<=90);
+  const types=countBy(f30,c=>c.type),paths=countBy(f30,c=>c.method).map(x=>({k:x.k,v:x.v})).slice(0,5);
+  const hot=Object.values(zoneStats()).filter(s=>s.cb30>0).sort((a,b)=>b.cb30-a.cb30)[0];
+  const wk=weekly(S.contraband),proj=projectNext(wk.v);
+  const pend=(typeof B!=='undefined'&&B&&B.rows)?B.rows.filter(e=>e.CandidateFind==='Y'&&e.FindState==='Pending').length:0;
+  return ovPanel('Contraband','contraband','Open Contraband',`<div class="ovt">${ovTile(f30.length,'Finds, 30 days',ovDelta(f30.length,c60.length))}${ovTile(f90.length,'Finds, 90 days','')}${ovTile(types.length?esc(types[0].k):'None','Most found',types.length?types[0].v+' in 30 days':'')}${ovTile(hot?esc(hot.z.name):'None','Busiest area',hot?hot.cb30+' in 30 days':'')}</div>
+   ${pend?`<ul class="attn"><li><button class="lnk" data-act="blGo" data-to="bl-entries"><b>${pend}</b> possible find${pend>1?'s':''} from the blotter waiting for review</button></li></ul>`:''}
+   <h3>Finds per week</h3>${columns(wk.v,wk.labels,'Contraband finds per week, last 12 weeks',proj)}${proj!=null?`<p class="sub">Next week, projected: <b>${proj}</b>.</p>`:''}
+   <h3>Introduction pathway, 30 days</h3>${hbars(paths)}`);
+}
+function ovIntel(){
+  const live=['New','Under review','Corroborated'],openR=S.reports.filter(r=>['New','Under review'].includes(r.status)),urg=S.reports.filter(r=>r.priority==='Urgent'&&live.includes(r.status));
+  const new30=S.reports.filter(r=>age(r.date)<=30).length;
+  const oldest=openR.slice().sort((a,b)=>Date.parse(a.date)-Date.parse(b.date))[0];
+  const byStatus=STATUSES.map(k=>({k,v:S.reports.filter(r=>r.status===k).length})).filter(x=>x.v);
+  const openT=S.tasks.filter(t=>t.status!=='Done'),odT=openT.filter(t=>overdue(t.due)),orv=S.subjects.filter(s=>s.watch!=='None'&&overdue(s.review));
+  return ovPanel('Intel reports','reports','Open Intel reports',`<div class="ovt">${ovTile(openR.length,'Awaiting review',urg.length+' urgent and still live')}${ovTile(new30,'Filed, 30 days',S.reports.length+' in total')}${ovTile(oldest?Math.max(0,Math.round(age(oldest.date)))+' d':'None','Oldest waiting',oldest?esc(oldest.id):'Nothing waiting')}${ovTile(S.subjects.filter(s=>s.watch!=='None').length,'On a watch list',orv.length+' review'+(orv.length===1?'':'s')+' overdue')}</div>
+   <h3>Reports by status</h3>${hbars(byStatus)}
+   <ul class="attn"><li>Collection tasks overdue: <b>${odT.length}</b> of ${openT.length} open <button class="lnk" data-act="nav" data-r="collection">Open</button></li><li>Watch-list reviews overdue: <b>${orv.length}</b> <button class="lnk" data-act="nav" data-r="subjects">Open</button></li></ul>`);
+}
 PAGES.overview=function(){
-  const c30=S.contraband.filter(c=>age(c.date)<=30).length,c60=S.contraband.filter(c=>inRange(c.date,30,60)).length,dl=c30-c60;
+  const c30=S.contraband.filter(c=>age(c.date)<=30).length,c60=S.contraband.filter(c=>inRange(c.date,30,60)).length;
   const live=['New','Under review','Corroborated'];
   const openR=S.reports.filter(r=>['New','Under review'].includes(r.status)),urg=S.reports.filter(r=>r.priority==='Urgent'&&live.includes(r.status));
   const openV=S.vulns.filter(v=>v.status!=='Closed'),hiV=openV.filter(v=>v.severity==='High'||v.severity==='Critical');
@@ -1915,20 +2007,24 @@ PAGES.overview=function(){
   const pats=patterns().slice(0,5);
   const queue=S.reports.filter(r=>!['Closed','Refuted','Actioned'].includes(r.status)).sort((a,b)=>PRIOS.indexOf(b.priority)-PRIOS.indexOf(a.priority)||Date.parse(b.date)-Date.parse(a.date)).slice(0,6);
   const due=openT.slice().sort((a,b)=>Date.parse(a.due)-Date.parse(b.due)).slice(0,6);
-  const wk=weekly(S.contraband);
-  const wkProj=projectNext(wk.v);
+  const hasB=typeof B!=='undefined'&&B&&B.rows&&B.rows.length;
+  const bi30=hasB?B.rows.filter(e=>e.IsIncident==='Y'&&blIn(e,0,30)).length:0,bi60=hasB?B.rows.filter(e=>e.IsIncident==='Y'&&blIn(e,30,60)).length:0;
+  const unmapped=hasB?blLocationGroups().filter(g=>g.zone==='UNMAPPED').length:0;
+  const flagged=hasB?blReviewQueue().slice(0,5):[];
   return head('Overview',`${FACILITY}, as of ${new Date(NOW).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}`,`<button class="btn" data-act="newCB">Log contraband find</button><button class="btn primary" data-act="newReport">New intel report</button>`)
-  +`<div class="strip">
-   <div class="st"><div class="l">Contraband finds, 30 days</div><div class="v">${c30}</div><div class="d"><span class="${dl>0?'up':dl<0?'down':''}">${dl>0?'+':dl<0?'-':''}${Math.abs(dl)}</span> vs prior 30 days</div></div>
+  +`<div class="strip s6">
+   <div class="st"><div class="l">Blotter incidents, 30 days</div><div class="v">${hasB?bi30:'—'}</div><div class="d">${hasB?ovDelta(bi30,bi60):'No blotter loaded'}</div></div>
+   <div class="st"><div class="l">Contraband finds, 30 days</div><div class="v">${c30}</div><div class="d">${ovDelta(c30,c60)}</div></div>
    <div class="st"><div class="l">Reports awaiting review</div><div class="v">${openR.length}</div><div class="d">${urg.length} urgent and still live</div></div>
    <div class="st"><div class="l">Open vulnerabilities</div><div class="v">${openV.length}</div><div class="d">${hiV.length} high or critical</div></div>
-   <div class="st"><div class="l">Collection tasks overdue</div><div class="v">${odT.length}</div><div class="d">${openT.length} tasks open</div></div>
-   <div class="st"><div class="l">Watch-list reviews overdue</div><div class="v">${orv.length}</div><div class="d">Renew or remove the listing</div></div></div>`
+   <div class="st"><div class="l">Blotter flagged for review</div><div class="v">${hasB?B.review.length:'—'}</div><div class="d">${hasB?unmapped+' location'+(unmapped===1?'':'s')+' not in the rules':'No blotter loaded'}</div></div>
+   <div class="st"><div class="l">Overdue</div><div class="v">${odT.length+orv.length}</div><div class="d">${odT.length} task${odT.length===1?'':'s'}, ${orv.length} watch-list review${orv.length===1?'':'s'}</div></div></div>`
+  +`<div class="ovgrid">${typeof blOverviewPanel==='function'?blOverviewPanel():''}${ovFacility()}${ovContraband()}${ovIntel()}</div>`
   +`<div class="hero"><section class="sec"><h2>Facility risk picture</h2>${planBlock()}</section>
    <section class="sec"><h2>Emerging patterns</h2>${pats.length?pats.map(patHtml).join(''):'<p class="sub">No patterns above threshold.</p>'}${SAMPLE?'<div class="acts"><button class="btn" data-act="brief">Draft weekly brief</button></div>':''}</section></div>`
-  +`<div class="trio"><section class="sec"><h2>Intelligence queue</h2>${queue.map(r=>`<button class="qrow" data-act="open" data-k="ir" data-id="${r.id}">${grade(r.rel,r.cred)}<span class="t"><b>${esc(r.title)}</b><small>${esc(zname(r.zone))}, ${rel(r.date)}</small></span>${prioChip(r.priority)}</button>`).join('')||'<p class="sub">Nothing waiting.</p>'}</section>
+  +`<div class="trio"><section class="sec"><h2>Intelligence queue</h2>${queue.map(r=>`<button class="qrow" data-act="open" data-k="ir" data-id="${r.id}">${grade(r.rel,r.cred)}<span class="t"><b>${esc(r.title)}</b><small>${esc(zname(r.zone))}, ${rel(r.date)}</small></span>${prioChip(r.priority)}</button>`).join('')||'<p class="sub">No open reports.</p>'}</section>
    <section class="sec"><h2>Collection tasks</h2>${due.map(t=>`<button class="qrow" data-act="nav" data-r="collection"><span class="t"><b>${esc(t.title)}</b><small>${esc(t.req)}, ${esc(t.assignee)}</small></span><span class="${overdue(t.due)?'od':'sub'}">${dueTxt(t.due)}</span></button>`).join('')||'<p class="sub">No open tasks.</p>'}</section>
-   <section class="sec"><h2>Finds per week</h2>${columns(wk.v,wk.labels,'Contraband finds per week, last 12 weeks',wkProj)}<p class="sub">Last 12 weeks. Labels show the week-ending date.${wkProj!=null?` Next week, projected: <b>${wkProj}</b>.`:''}</p></section></div>`;
+   <section class="sec"><h2>Blotter entries to review</h2>${flagged.length?flagged.map(e=>`<button class="qrow" data-act="open" data-k="bl" data-id="${esc(e.ReportID)}"><span class="t"><b>${esc(e.ReportID)}</b><small>${esc(EVL_OF(e.EventType))}, ${esc(e.Locations||e.LocationRaw||'No location')}</small></span></button>`).join('')+(B.review.length>5?`<button class="lnk" data-act="blGo" data-to="bl-review">See all ${B.review.length}</button>`:''):`<p class="sub">${hasB?'Nothing is flagged for review.':'No blotter loaded.'}</p>`}</section></div>`;
 };
 
 /* ---- reports ---- */
@@ -1979,7 +2075,7 @@ function zonePanel(){
   const reps=S.reports.filter(r=>r.zone===z.id&&['New','Under review','Corroborated'].includes(r.status));
   const vs=S.vulns.filter(v=>v.zone===z.id&&v.status!=='Closed');
   return `<div class="dh"><h2>${esc(z.name)}</h2>${chip('Risk '+s.risk+', '+bl,bc)}</div><p class="sub">${esc(z.type)}. ${esc(z.note)}</p>
-  <div class="mini"><div><b>${s.cb30}</b><span>Finds, 30d</span></div><div><b>${s.cb90}</b><span>Finds, 90d</span></div><div><b>${reps.length}</b><span>Open reports</span></div><div><b>${vs.length}</b><span>Vulnerabilities</span></div></div>
+  <div class="ovt"><div><b>${s.cb30}</b><span>Finds, 30d</span></div><div><b>${s.cb90}</b><span>Finds, 90d</span></div><div><b>${reps.length}</b><span>Open reports</span></div><div><b>${vs.length}</b><span>Vulnerabilities</span></div></div>
   <dl class="kv"><dt>Cameras</dt><dd>${z.cams?z.cams+' fixed, about '+z.cover+'% floor coverage':'Not yet confirmed'}</dd><dt>Movement</dt><dd>${['','Very low','Low','Moderate','High','Very high'][z.move]} traffic (assumed)</dd></dl>
   <h3>Open vulnerabilities</h3>${vs.map(v=>`<button class="qrow" data-act="editVuln" data-id="${v.id}"><span class="t"><b>${esc(v.title)}</b><small>${esc(v.category)}</small></span>${sevChip(v.severity)}</button>`).join('')||'<p class="sub">None recorded.</p>'}
   <h3>Open reports</h3>${reps.map(r=>`<button class="qrow" data-act="open" data-k="ir" data-id="${r.id}">${grade(r.rel,r.cred)}<span class="t"><b>${esc(r.title)}</b><small>${rel(r.date)}</small></span>${prioChip(r.priority)}</button>`).join('')||'<p class="sub">None open.</p>'}
@@ -2008,14 +2104,16 @@ PAGES.network=function(){
 /* ---- subjects ---- */
 LISTS.subjects=function(){
   const f=ui.f.subjects,q=f.q.toLowerCase();
-  const rows=S.subjects.filter(s=>(!f.type||s.type===f.type)&&(!f.watch||s.watch===f.watch)&&(!q||(s.id+' '+s.name+' '+s.alias+' '+s.ref+' '+s.group).toLowerCase().includes(q)));
+  const rows=S.subjects.filter(s=>(!f.type||s.type===f.type)&&(!f.watch||s.watch===f.watch)&&(!f.origin||(f.origin==='blotter'?s.src==='blotter':s.src!=='blotter'))&&(!q||(s.id+' '+s.name+' '+s.alias+' '+s.ref+' '+s.group).toLowerCase().includes(q)));
   if(!rows.length)return '<div class="empty">No subjects match these filters.</div>';
-  return `<div class="scroll"><table class="tbl"><thead><tr><th>Subject</th><th>Type</th><th>Location</th><th>Group</th><th>Watch level</th><th>Review due</th><th>Linked records</th></tr></thead><tbody>${rows.map(s=>{const nr=S.reports.filter(r=>r.subjects.includes(s.id)).length,nc=S.contraband.filter(c=>c.subjects.includes(s.id)).length;return `<tr class="row" tabindex="0" data-act="open" data-k="subj" data-id="${s.id}"><td><span class="idtag">${s.id}</span><br><b>${esc(s.name)}</b><small>${esc(s.alias?'Alias: '+s.alias+'. ':'')}${esc(s.ref)}</small></td><td>${esc(s.type)}</td><td>${esc(zname(s.zone))}</td><td>${esc(s.group)}</td><td>${watchChip(s.watch)}</td><td>${s.watch==='None'?'Not required':`<span class="${overdue(s.review)?'od':''}">${fmtD(s.review)}${overdue(s.review)?' (overdue)':''}</span>`}</td><td>${nr} reports, ${nc} finds</td></tr>`}).join('')}</tbody></table></div>`;
+  const shown=rows.slice(0,f.limit||150),cnt=new Map();
+  if(typeof B!=='undefined'&&B&&B.rows&&typeof blPeopleOf==='function')B.rows.forEach(e=>blPeopleOf(e).forEach(p=>cnt.set(p.bk,(cnt.get(p.bk)||0)+1)));
+  return `<p class="sub">${rows.length} subject${rows.length===1?'':'s'}.</p><div class="scroll"><table class="tbl"><thead><tr><th>Subject</th><th>Type</th><th>Location</th><th>Group</th><th>Watch level</th><th>Review due</th><th>Linked records</th></tr></thead><tbody>${shown.map(s=>{const nr=S.reports.filter(r=>r.subjects.includes(s.id)).length,nc=S.contraband.filter(c=>c.subjects.includes(s.id)).length,nb=cnt.get(typeof bkOf==='function'?bkOf(s):'')||0;return `<tr class="row" tabindex="0" data-act="open" data-k="subj" data-id="${s.id}"><td><span class="idtag">${s.id}</span>${s.src==='blotter'?' '+chip('From the blotter','c-steel'):''}<br><b>${esc(s.name)}</b><small>${esc(s.alias?'Alias: '+s.alias+'. ':'')}${esc(s.ref)}</small></td><td>${esc(s.type)}</td><td>${esc(zname(s.zone))}</td><td>${esc(s.group)}</td><td>${watchChip(s.watch)}</td><td>${s.watch==='None'?'Not required':`<span class="${overdue(s.review)?'od':''}">${fmtD(s.review)}${overdue(s.review)?' (overdue)':''}</span>`}</td><td>${nr} reports, ${nc} finds${nb?`, ${nb} blotter entr${nb===1?'y':'ies'}`:''}</td></tr>`}).join('')}</tbody></table></div>${rows.length>shown.length?`<div class="listbar"><span>Showing ${shown.length} of ${rows.length}.</span><button class="btn small" data-act="subjMore">Show 150 more</button></div>`:''}`;
 };
 PAGES.subjects=function(){
   const f=ui.f.subjects;
   return head('Subjects','Detainees, visitors and outside contacts of interest. A watch level needs a written basis and a review date, so listings never go stale.',`<button class="btn primary" data-act="newSubject">Add subject</button>`)
-  +`<div class="filters"><input type="search" placeholder="Search subjects" aria-label="Search subjects" value="${esc(f.q)}" data-f="subjects.q">${selF('subjects.type','All types',SUBJ_TYPES,f.type)}${selF('subjects.watch','All watch levels',WATCH,f.watch)}</div><div data-list="subjects">${LISTS.subjects()}</div>`+(typeof blPeopleSection==='function'?blPeopleSection():'');
+  +`<div class="filters"><input type="search" placeholder="Search subjects" aria-label="Search subjects" value="${esc(f.q)}" data-f="subjects.q">${selF('subjects.type','All types',SUBJ_TYPES,f.type)}${selF('subjects.watch','All watch levels',WATCH,f.watch)}${selF('subjects.origin','All origins',[{v:'hand',l:'Added by hand'},{v:'blotter',l:'Created from the blotter'}],f.origin)}</div><div data-list="subjects">${LISTS.subjects()}</div>`+(typeof blPeopleSection==='function'?blPeopleSection():'');
 };
 
 /* ---- sources ---- */
@@ -2040,7 +2138,7 @@ PAGES.collection=function(){
 PAGES.audit=function(){
   return head('Audit and data','Every change is recorded. Export a copy of all records or reset to the fictional sample data.')
   +`<div class="note"><b>Prototype notice.</b> Records live in this browser only. Do not enter real personal or case information. A production deployment needs authenticated users, role-based access, encrypted storage, tamper-proof audit logging and hosting that meets your agency's security policy.</div>
-  <div class="acts" style="margin-bottom:24px"><button class="btn primary" data-act="export">Export all records</button><button class="btn" data-act="import">Import records</button><button class="btn" data-act="reset">Reset to sample data</button></div>
+  <div class="acts" style="margin-bottom:24px"><button class="btn primary" data-act="export">Export all records</button><button class="btn" data-act="import">Import records</button><button class="btn" data-act="reset">Reset to sample data</button><button class="btn" data-act="removeTest">Remove test data…</button></div>
   <section class="sec"><h2>Audit trail</h2><div class="scroll"><table class="tbl"><thead><tr><th>When</th><th>Who</th><th>Action</th><th>Record</th></tr></thead><tbody>${S.audit.slice(0,100).map(a=>`<tr><td>${fmtDT(a.t)}</td><td>${esc(a.who)}</td><td>${esc(a.action)}</td><td>${esc(a.ref)}</td></tr>`).join('')}</tbody></table></div></section>`;
 };
 
@@ -2114,7 +2212,7 @@ function openForm(cfg){
     const val=v[f.key]!==undefined?v[f.key]:'';const cls='fld'+(f.wide?' wide':'');const help=f.help?`<small>${esc(f.help)}</small>`:'';
     if(f.type==='multi'){
       const addPerson=f.key==='subjects'?`<div class="newp-rows" id="newpRows"></div><button type="button" class="lnk" data-act="addPersonRow">+ Add a new person</button><small>Not listed yet? Add them here and they'll be linked to this record and added to Subjects.</small>`:'';
-      return `<fieldset class="${cls}"><legend>${esc(f.label)}</legend><div class="checks">${f.options.map(o=>`<label class="chk"><input type="checkbox" name="${f.key}" value="${esc(o.v)}" ${(val||[]).includes(o.v)?'checked':''}> ${esc(o.l)}</label>`).join('')}</div>${addPerson}${help}</fieldset>`;
+      return `<fieldset class="${cls}"><legend>${esc(f.label)}</legend>${f.options.length>15?`<input type="search" class="mfilter" data-mfilter placeholder="Search ${esc(f.label.toLowerCase())}…" aria-label="Search ${esc(f.label.toLowerCase())}">`:''}<div class="checks">${f.options.map(o=>`<label class="chk"><input type="checkbox" name="${f.key}" value="${esc(o.v)}" ${(val||[]).includes(o.v)?'checked':''}> ${esc(o.l)}</label>`).join('')}</div>${addPerson}${help}</fieldset>`;
     }
     if(f.type==='photo'){
       return `<div class="${cls} photo-fld"><span>${esc(f.label)}</span>
@@ -2129,7 +2227,7 @@ function openForm(cfg){
     else inp=`<input name="${f.key}" type="${f.type||'text'}" value="${esc(val)}" ${f.type==='number'?'step="any" min="0"':''}>`;
     return `<label class="${cls}"><span>${esc(f.label)}${f.req?' *':''}</span>${inp}${help}</label>`;
   }).join('');
-  openModal(`<h2>${esc(cfg.title)}</h2>${cfg.note?`<p class="sub">${esc(cfg.note)}</p>`:''}<div id="fbody" class="fgrid">${body}</div><div class="err" id="ferr" role="alert"></div><div class="acts"><button class="btn primary" id="fsave">${esc(cfg.submit||'Save')}</button><button class="btn" data-act="closeModal">Cancel</button></div>`);
+  openModal(`<h2>${esc(cfg.title)}</h2>${cfg.note?`<p class="sub">${esc(cfg.note)}</p>`:''}${cfg.context||''}<div id="fbody" class="fgrid">${body}</div><div class="err" id="ferr" role="alert"></div><div class="acts"><button class="btn primary" id="fsave">${esc(cfg.submit||'Save')}</button><button class="btn" data-act="closeModal">Cancel</button></div>`);
   $$('[data-photo]',$('#fbody')).forEach(inp=>{
     inp.onchange=()=>{
       const f=inp.files&&inp.files[0];if(!f)return;
@@ -2187,7 +2285,7 @@ function commit(arr,ex,o,prefix,len,noun,front){
   else{rec=Object.assign({id:nextId(prefix,arr,len)},o);arr[front?'unshift':'push'](rec);log('Created '+noun,rec.id)}
   persist();closeModal();render();renderDrawer();toast(ex?'Changes saved':'Saved as '+rec.id);return rec;
 }
-const subjOpts=()=>S.subjects.map(s=>({v:s.id,l:`${s.name} (${s.id})`}));
+const subjOpts=()=>S.subjects.slice().sort((a,b)=>(a.src==='blotter')-(b.src==='blotter')).map(s=>({v:s.id,l:`${s.name}${s.src==='blotter'?' #'+s.ref:''} (${s.id})`}));
 const relOpts=Object.keys(REL).map(k=>({v:k,l:`${k}: ${REL[k]}`}));
 const credOpts=Object.keys(CRED).map(k=>({v:k,l:`${k}: ${CRED[k]}`}));
 const today=()=>new Date().toISOString();
@@ -2215,7 +2313,7 @@ function formReport(id,pre){
 function formCB(id,pre){
   const ex=id?byId(S.contraband,id):null;
   const v=ex?Object.assign({},ex,{date:toLocal(ex.date)}):Object.assign({date:toLocal(today()),type:'Narcotics',qty:1,zone:'hb',method:'Unknown',found:'Cell search',disposition:'Held as evidence',report:'',subjects:[],notes:''},pre||{});
-  openForm({title:ex?'Edit '+ex.id:'Log contraband find',note:pre&&pre.blotter?'Created from blotter entry '+pre.blotter+'. Choose where in this facility it was found and set the pathway and quantity. The blotter narrative is not copied.':undefined,submit:ex?'Save changes':'Log find',values:v,fields:[
+  openForm({title:ex?'Edit '+ex.id:'Log contraband find',note:pre&&pre.blotter?'Created from blotter entry '+pre.blotter+'. The entry is shown below so you can see what happened while you fill in the find.':undefined,context:pre&&pre.blotter&&typeof blContextHtml==='function'?blContextHtml(pre.blotter):undefined,submit:ex?'Save changes':'Log find',values:v,fields:[
     {key:'date',label:'Found on',type:'datetime-local'},
     {key:'type',label:'Type',type:'select',options:TYPE_NAMES},
     {key:'qty',label:'Quantity',type:'number',help:'Unit is set from the type, for example sheets or devices.'},
@@ -2484,6 +2582,59 @@ function runImport(){
 function doReset(){openModal(`<h2>Reset to sample data?</h2><p>Every record you added or changed in this browser will be replaced by the fictional sample set. This cannot be undone.</p><div class="acts"><button class="btn primary" data-act="runReset">Reset</button><button class="btn" data-act="closeModal">Cancel</button></div>`)}
 function runReset(){S=seedData();log('Reset to sample data','All records');ui.stack=[];ui.net.sig='';ui.net.pos={};ui.zone=null;closeModal();closeDrawer();render();toast('Sample data restored')}
 
+/* ---- remove test data ----
+   The fictional sample records are told apart from yours by matching the sample set's own ids and
+   titles, so a sample record you have edited counts as yours and is kept. */
+const SAMPLE_KEYS={reports:'title',contraband:'type',subjects:'name',sources:'codename',reqs:'title',tasks:'title',vulns:'title'};
+function sampleInventory(){
+  const seed=seedData(),ids={};let n=0,total=0;
+  Object.keys(SAMPLE_KEYS).forEach(k=>{
+    const key=SAMPLE_KEYS[k],m=new Map((seed[k]||[]).map(x=>[x.id,x[key]]));
+    ids[k]=(S[k]||[]).filter(x=>m.has(x.id)&&m.get(x.id)===x[key]).map(x=>x.id);
+    n+=ids[k].length;total+=(S[k]||[]).length;
+  });
+  return{ids,n,total,mine:total-n};
+}
+function removeTestDlg(){
+  const inv=sampleInventory(),nb=(typeof B!=='undefined'&&B&&B.rows)?B.rows.length:0,auto=S.subjects.filter(s=>s.src==='blotter').length;
+  openModal(`<h2>Remove test data</h2>
+  <p>This browser holds <b>${inv.n}</b> fictional sample records and <b>${inv.mine}</b> others: records you added or changed${auto?`, including ${auto} subjects created from the blotter`:''}.</p>
+  <fieldset class="fld wide"><div class="checks" style="flex-direction:column;max-height:none">
+   <label class="chk"><input type="radio" name="rtMode" value="sample" checked> <span>Remove the sample records only (${inv.n}). Anything you added or changed stays. A sample record that one of yours points to stays too, so nothing is left linked to a record that's gone.</span></label>
+   <label class="chk"><input type="radio" name="rtMode" value="all"> <span>Remove every report, contraband find, subject, source, requirement, task and vulnerability (${inv.total}), so the app starts completely empty.</span></label>
+   <label class="chk"><input type="checkbox" id="rtBlot"> <span>Also clear the ${nb} blotter entries stored on this device</span></label>
+  </div></fieldset>
+  <p class="sub">Your pattern rules, saved location mappings and the audit trail are kept. This can't be undone, though Reset to sample data on this page brings the sample set back.</p>
+  <div class="err" id="rtErr" role="alert"></div><div class="acts"><button class="btn primary" id="rtGo">Remove</button><button class="btn" data-act="closeModal">Cancel</button></div>`);
+  $('#rtGo').onclick=async()=>{
+    const mode=document.querySelector('input[name=rtMode]:checked').value,alsoBlot=$('#rtBlot').checked;
+    const before=Object.keys(SAMPLE_KEYS).reduce((a,k)=>a+(S[k]||[]).length,0);
+    if(mode==='all')Object.keys(SAMPLE_KEYS).forEach(k=>{S[k]=[]});
+    else{
+      const gone={};Object.keys(inv.ids).forEach(k=>gone[k]=new Set(inv.ids[k]));
+      let changed=true;
+      const keep=(k,id)=>{if(id&&gone[k]&&gone[k].has(id)){gone[k].delete(id);changed=true}};
+      while(changed){changed=false;
+        S.reports.forEach(r=>{if(gone.reports.has(r.id))return;(r.subjects||[]).forEach(s=>keep('subjects',s));keep('sources',r.src);keep('reqs',r.req)});
+        S.contraband.forEach(c=>{if(gone.contraband.has(c.id))return;(c.subjects||[]).forEach(s=>keep('subjects',s));keep('reports',c.report)});
+        S.tasks.forEach(x=>{if(gone.tasks.has(x.id))return;keep('reqs',x.req)});
+      }
+      Object.keys(gone).forEach(k=>{S[k]=S[k].filter(x=>!gone[k].has(x.id))});
+    }
+    const removed=before-Object.keys(SAMPLE_KEYS).reduce((a,k)=>a+(S[k]||[]).length,0);
+    SUBJ_IDX=null;
+    if(alsoBlot&&typeof blClearAll==='function'){await blClearAll();blSetEmpty();S.blSeen={}}
+    log('Removed test data',`${removed} records${alsoBlot?' and the stored blotter entries':''} (${mode==='all'?'everything':'sample records only'})`);
+    ui.stack=[];ui.net.sig='';ui.net.pos={};ui.zone=null;closeModal();closeDrawer();render();
+    toast(`${removed} record${removed===1?'':'s'} removed${alsoBlot?', blotter cleared':''}`);
+  };
+}
+document.addEventListener('input',ev=>{
+  const el=ev.target;if(!el.dataset||el.dataset.mfilter===undefined)return;
+  const q=el.value.trim().toLowerCase(),box=el.closest('fieldset');if(!box)return;
+  box.querySelectorAll('.checks label').forEach(l=>{const inp=l.querySelector('input');l.style.display=(!q||(inp&&inp.checked)||l.textContent.toLowerCase().includes(q))?'':'none'});
+});
+
 async function brief(){
   if(!SAMPLE)return;
   const st=zoneStats(),c30=S.contraband.filter(c=>age(c.date)<=30),c60=S.contraband.filter(c=>inRange(c.date,30,60));
@@ -2535,7 +2686,7 @@ const A={
   },
   removePersonRow(d,el){el.closest('.newp-row').remove()},
   theme(){const next=isDark()?'light':'dark';document.documentElement.dataset.theme=next;try{localStorage.setItem('dims.theme',next)}catch(e){}renderRail()},
-  export(){doExport()},import(){doImport()},runImport,reset(){doReset()},runReset,
+  export(){doExport()},import(){doImport()},runImport,reset(){doReset()},runReset,removeTest(){removeTestDlg()},subjMore(){ui.f.subjects.limit+=150;refreshLists()},
   pdfReport(d){reportPdf(d.id)},
   dossier(d){subjectDossierPdf(d.id)},
   copyExp(){copyText($('#expta').value)},copyBrief(){copyText($('#briefout').textContent)},brief
@@ -2545,7 +2696,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){if($('#modal').classList.contains('on'))closeModal();else if(ui.stack.length)closeDrawer();return}
   if((e.key==='Enter'||e.key===' ')&&e.target.matches&&e.target.matches('tr.row,.plan .zone')){e.preventDefault();e.target.dispatchEvent(new MouseEvent('click',{bubbles:true}))}
 });
-function setFilter(el){const p=el.dataset.f.split('.');ui.f[p[0]][p[1]]=el.value;if(p[0]==='blotter')ui.f.blotter.limit=150;if(p[0]==='blotter'&&(p[1]==='zone'||p[1]==='sort'))render();else refreshLists()}
+function setFilter(el){const p=el.dataset.f.split('.');ui.f[p[0]][p[1]]=el.value;if(p[0]==='blotter')ui.f.blotter.limit=150;if(p[0]==='subjects')ui.f.subjects.limit=150;if(p[0]==='blotter'&&(p[1]==='zone'||p[1]==='sort'))render();else refreshLists()}
 document.addEventListener('input',e=>{const el=e.target;if(el.dataset&&el.dataset.f&&el.type==='search')setFilter(el)});
 document.addEventListener('change',e=>{
   const el=e.target,c=el.dataset&&el.dataset.chg;
@@ -2561,12 +2712,13 @@ document.addEventListener('change',e=>{
 const EVL={'FLOOR-MANAGEMENT':'Daily floor management','CODE-ONE':'Code One (medical response)','CODE-TWO':'Code Two (disturbance or force)','INCOMPATIBLE':'Incompatible inmates','STAFFING':'Staffing','SUICIDE-RISK':'Suicide risk','EQUIPMENT-FACILITY':'Equipment or facility','HOSPITAL-TRANSPORT':'Hospital transport','INSPECTION':'Inspection','RECREATION':'Recreation or dayroom','DISRUPTIVE':'Disruptive inmate','SAFETY-SYSTEMS':'Safety systems','WARRANT-CHECK':'Warrant check','WELFARE-CONCERN':'Welfare concern','EMERGENCY-DETENTION':'Emergency detention','ID-CARD':'ID card','CONTRABAND-FOUND':'Contraband found','WORKER-STATUS':'Worker status','INJURY':'Injury','CODE-DRILL':'Code drill','COURT-REFUSAL':'Court refusal','GPS-MONITOR':'GPS monitor','GRIEVANCE':'Grievance','HOUSING-REFUSAL':'Housing refusal','DEATH':'Death notification','PREA':'PREA','OTHER':'Other'};
 const EVL_OF=k=>EVL[k]||k;
 const bkOf=s=>{const m=/(\d{6,8})/.exec(s.ref||'');if(m)return m[1];const d=/^D-(\d\d)-(\d{4})$/.exec(s.ref||'');return d?'9'+d[1]+d[2]:''};
-const subjByBk=bk=>S.subjects.find(s=>bkOf(s)===bk);
-const BL_FILTER_DEFAULT=()=>({q:'',qEntry:'',qLoc:'',ev:[],cat:[],shift:[],fac:[],inc:[],zone:'',from:'',to:'',sort:'date',dir:'desc',limit:150});
+function subjIndex(){if(!SUBJ_IDX||SUBJ_IDX_S!==S){SUBJ_IDX=new Map();SUBJ_IDX_S=S;S.subjects.forEach(s=>{const k=bkOf(s);if(k&&!SUBJ_IDX.has(k))SUBJ_IDX.set(k,s)})}return SUBJ_IDX}
+const subjByBk=bk=>subjIndex().get(bk);
+const BL_FILTER_DEFAULT=()=>({q:'',qEntry:'',qLoc:'',qWO:'',qCS:'',ev:[],cat:[],shift:[],fac:[],inc:[],zone:'',from:'',to:'',sort:'date',dir:'desc',limit:150});
 ui.f.blotter=BL_FILTER_DEFAULT();
-ui.bl={layer:'inc',showRep:false};
+ui.bl={layer:'inc',showRep:false,revDir:'asc'};
 const BL_LAYERS=[['inc','Security incidents'],['c2','Code Two'],['force','Use of force'],['all','All entries']];
-const BL_COLS=['Title','ReportID','OccurredAt','Shift','Category','Subcategory','EventType','UseOfForce','IsIncident','LocationRaw','Locations','ZoneCode','ZoneCodes','AreasMentioned','PeopleNamed','HandlingMode','SubjectIDs','Summary','ActionsTaken','CandidateFind','CandidateType','FindState','Flagged','FollowUpNote','QualityFlags','SourceFile','ImportBatch'];
+const BL_COLS=['Title','ReportID','OccurredAt','Shift','Category','Subcategory','EventType','UseOfForce','IsIncident','LocationRaw','Locations','ZoneCode','ZoneCodes','AreasMentioned','PeopleNamed','HandlingMode','SubjectIDs','Summary','ActionsTaken','WorkOrders','CaseNumbers','CandidateFind','CandidateType','FindState','Flagged','FollowUpNote','QualityFlags','SourceFile','ImportBatch'];
 
 /* ---- local, device-only database. Nothing here is uploaded or shared with anyone
    who opens this page on a different device or browser. ---- */
@@ -2696,7 +2848,8 @@ function blReparse(e){
   const areas=[...new Set(BLC.NARRATIVE_AREAS.filter(([re])=>re.test((e.Summary||'')+' '+(e.ActionsTaken||''))).map(x=>x[1]))].filter(a=>!(r.SubAreas||'').split('; ').includes(a));
   const dm=/^(?:[A-Z]{2,5})?(\d{2})(\d{2})(\d{2})-/.exec(e.ReportID||'');
   const duty=e.DutyDate||(dm?`20${dm[3]}-${dm[1]}-${dm[2]}`:'');
-  return Object.assign(r,{People:people,SubjectIDs:people.map(p=>p.bk).join(';'),AreasMentioned:areas.join('; '),DutyDate:duty,ParseVer:3});
+  const refs=BLC.extractRefs((e.Summary||'')+' . '+(e.ActionsTaken||''));
+  return Object.assign(r,{People:people,SubjectIDs:people.map(p=>p.bk).join(';'),AreasMentioned:areas.join('; '),WorkOrders:refs.wo.join('; '),CaseNumbers:refs.cs.join('; '),DutyDate:duty,ParseVer:4});
 }
 async function blLoadFromDB(){
   const [entries,legacyReview]=await Promise.all([blGetAll('entries'),blGetAll('review')]);
@@ -2705,7 +2858,7 @@ async function blLoadFromDB(){
   const have=new Set(entries.map(e=>e.ReportID));
   const rows=entries.concat(legacyReview.filter(r=>!have.has(r.ReportID)));
   const stale=[];
-  rows.forEach((e,i)=>{if(e.ParseVer!==3){rows[i]=blReparse(e);stale.push(rows[i])}});
+  rows.forEach((e,i)=>{if(e.ParseVer!==4){rows[i]=blReparse(e);stale.push(rows[i])}});
   // Entries stored before duty days were read: a 23:xx entry in a Word blotter's opening 3rd-shift
   // section (before its first shift change) happened the evening before its blotter date.
   const firstChange={};rows.forEach(e=>{if(e.SourceFile&&/\.docx?$/i.test(e.SourceFile)&&e.Seq!==''&&e.Shift&&e.Shift!=='3RD'){firstChange[e.SourceFile]=Math.min(firstChange[e.SourceFile]!=null?firstChange[e.SourceFile]:Infinity,+e.Seq)}});
@@ -2746,6 +2899,7 @@ async function blInit(){
   let loaded=false;
   try{loaded=await blLoadFromDB()}catch(e){blStorageOK=false}
   if(!loaded)blSetEmpty();
+  else{try{const n=blAutoSubjects(B.rows);if(n)BL_BOOT_NOTE=`${n} subject${n>1?'s':''} created from the blotter`}catch(e){}}
 }
 const blFind=id=>B&&(B.rows.find(e=>e.ReportID===id)||B.review.find(e=>e.ReportID===id));
 const blDays=(e)=>(B.asof-e._t)/DAY;
@@ -3035,7 +3189,7 @@ function blIntakeDlg(){
   <label class="fld"><span>Shift</span><select id="ixShift"><option value="1ST">1st</option><option value="2ND">2nd</option><option value="3RD">3rd</option></select></label>
   <label class="fld"><span>Category</span><select id="ixCat"><option>Information</option><option>Security</option><option>Medical</option><option>Maintenance</option><option>Restricted</option></select></label>
   <label class="fld"><span>Subcategory</span><input id="ixSub" list="ixSubList" placeholder="e.g. CODE TWO/ NO FORCE UTILIZED" required><datalist id="ixSubList">${BL_SUBCAT_SUGGEST.map(s=>`<option value="${esc(s)}">`).join('')}</datalist></label>
-  <label class="fld wide"><span>Unit or area</span><input id="ixLoc" list="ixLocList" placeholder="e.g. Unit AB, or Main Jail booking" required><datalist id="ixLocList">${zoneList.map(z=>`<option value="${esc(z.Title)}">`).join('')}</datalist></label>
+  <label class="fld wide"><span>Unit or area <small>(several: separate with commas, for example Unit 1A, Unit 2A)</small></span><input id="ixLoc" list="ixLocList" placeholder="e.g. Unit AB, or Main Jail booking" required><datalist id="ixLocList">${zoneList.map(z=>`<option value="${esc(z.Title)}">`).join('')}</datalist></label>
   <label class="fld wide"><span>Booking numbers involved (optional)</span><input id="ixSubj" placeholder="Comma-separated, e.g. 1131571, 1128004"></label>
   <label class="fld wide"><span>Summary</span><textarea id="ixSum" rows="3" required placeholder="What happened, in the usual blotter style."></textarea></label>
   <label class="fld wide"><span>Actions taken (optional)</span><textarea id="ixAct" rows="2"></textarea></label>
@@ -3075,8 +3229,9 @@ async function blSubmitIntake(){
   rec.FindState=rec.CandidateFind==='Y'?'Pending':'None';await blPutAll('entries',[rec]);
   if(wasEmpty){const prev=(await blGetMeta('sourceFiles'))||[];await blSetMeta('sourceFiles',[...new Set([...prev,'Manual intake'])])}
   if(blStorageOK)await blLoadFromDB();else blMergeInMemory(res.clean.length?[rec]:[],res.clean.length?[]:[rec],'intake');
+  const made=blAutoSubjects([rec]);
   closeModal();go('blotter');
-  toast(res.clean.length?`Logged as ${rec.ReportID}`:`Logged as ${rec.ReportID}, held for review: ${rec.QualityFlags.split(';')[0]}`);
+  toast(`Logged as ${rec.ReportID}${BLC.needsReview(rec)?', flagged for review':''}${made?`; ${made} subject${made>1?'s':''} created`:''}`);
 }
 
 /* ---- map, lists, drawer ---- */
@@ -3101,28 +3256,29 @@ function blMapSvg(){
 }
 function blWeekly(fn,n=8){const v=Array(n).fill(0);B.rows.forEach(e=>{if(!fn(e))return;const w=Math.floor(blDays(e)/7);if(w>=0&&w<n)v[n-1-w]++});return{v,labels:v.map((_,i)=>new Date(B.asof-(n-1-i)*7*DAY).toLocaleDateString('en-US',{month:'short',day:'numeric'}))}}
 /* ---- entries: filter and sort ---- */
-const BL_SHOW=[{v:'noloc',l:'No location written'},{v:'unmapped',l:'Location not in the rules'},{v:'inc',l:'Security incidents'},{v:'force',l:'Use of force'},{v:'cand',l:'Possible finds'},{v:'flag',l:'Flagged for follow-up'},{v:'review',l:'Flagged for review'},{v:'prea',l:'PREA'},{v:'ids',l:'Has booking numbers'}];
+const BL_SHOW=[{v:'wo',l:'Has a work order'},{v:'cs',l:'Has a case number'},{v:'multi',l:'Names more than one unit'},{v:'noloc',l:'No location written'},{v:'unmapped',l:'Location not in the rules'},{v:'inc',l:'Security incidents'},{v:'force',l:'Use of force'},{v:'cand',l:'Possible finds'},{v:'flag',l:'Flagged for follow-up'},{v:'review',l:'Flagged for review'},{v:'prea',l:'PREA'},{v:'ids',l:'Has booking numbers'}];
 const BL_SORTS=[{v:'date',l:'Date and time'},{v:'report',l:'Report number'},{v:'zone',l:'Unit or area'},{v:'type',l:'Entry type'},{v:'cat',l:'Category'},{v:'shift',l:'Shift'}];
-function blReportKey(id){const m=/^(\d{2})(\d{2})(\d{2})-(\d+)([A-Z]?)$/.exec(id||'');return m?`${m[3]}${m[1]}${m[2]}-${m[4].padStart(4,'0')}${m[5]}`:String(id||'')}
+function blReportKey(id){const m=/^([A-Z]{2,5})?(\d{2})(\d{2})(\d{2})-(\d+)([A-Z]?)$/.exec(id||'');return m?`${m[4]}${m[2]}${m[3]}-${m[5].padStart(4,'0')}${m[6]}${m[1]||''}`:String(id||'')}
 function blFacOf(){const m={};(B.zones||[]).forEach(z=>m[z.ZoneCode]=z.Facility||'');return m}
 function blFilteredRows(){
   const f=ui.f.blotter,low=s=>String(s||'').toLowerCase();
-  const q=low(f.q).trim(),qE=low(f.qEntry).trim(),qL=low(f.qLoc).trim(),fac=blFacOf();
+  const q=low(f.q).trim(),qE=low(f.qEntry).trim(),qL=low(f.qLoc).trim(),qW=low(f.qWO).replace(/[#\s]/g,''),qC=low(f.qCS).replace(/[#\s]/g,''),fac=blFacOf();
   const from=f.from?Date.parse(f.from+'T00:00:00'):null,to=f.to?Date.parse(f.to+'T23:59:59'):null;
-  const show={noloc:e=>!e.LocationNorm,unmapped:e=>e.ZoneCode==='UNMAPPED',inc:e=>e.IsIncident==='Y',force:e=>e.UseOfForce==='Y',cand:e=>e.CandidateFind==='Y',flag:e=>e.Flagged==='Y',review:e=>e.NeedsReview==='Y',prea:e=>e.EventType==='PREA',ids:e=>!!e.SubjectIDs};
+  const show={wo:e=>!!e.WorkOrders,cs:e=>!!e.CaseNumbers,multi:e=>/MultipleUnits/.test(e.QualityFlags||''),noloc:e=>!e.LocationNorm,unmapped:e=>e.ZoneCode==='UNMAPPED',inc:e=>e.IsIncident==='Y',force:e=>e.UseOfForce==='Y',cand:e=>e.CandidateFind==='Y',flag:e=>e.Flagged==='Y',review:e=>e.NeedsReview==='Y',prea:e=>e.EventType==='PREA',ids:e=>!!e.SubjectIDs};
   const any=(arr,v)=>!arr.length||arr.includes(v);
   const rows=B.rows.filter(e=>any(f.ev,e.EventType)&&any(f.cat,e.Category||'Missing')&&any(f.shift,e.Shift||'None')
     &&(!f.fac.length||(blZonesOf(e).length?blZonesOf(e):['']).some(z=>f.fac.includes(fac[z]||'Unmapped')))&&(!f.inc.length||f.inc.some(k=>show[k]&&show[k](e)))&&(!f.zone||blZonesOf(e).includes(f.zone))
     &&(!f.from||(e.DutyDate?e.DutyDate>=f.from:Number.isFinite(e._t)&&e._t>=from))&&(!f.to||(e.DutyDate?e.DutyDate<=f.to:Number.isFinite(e._t)&&e._t<=to))
     &&(!qE||low([e.ReportID,e.OriginalReportID,EVL_OF(e.EventType),e.Subcategory].join(' ')).includes(qE))
     &&(!qL||low([e.LocationRaw,e.Locations,e.AreasMentioned,e.ZoneCodes].concat(blZonesOf(e).map(blZoneName)).join(' ')).includes(qL))
-    &&(!q||low([e.ReportID,e.OriginalReportID,e.Locations,e.AreasMentioned,blPeopleOf(e).map(p=>p.name).join(' '),e.Subcategory,e.Category,e.LocationRaw,e.ZoneCode,e.Summary,e.ActionsTaken,e.SubjectIDs,e.SourceFile].join(' ')).includes(q)));
+    &&(!qW||low(e.WorkOrders).includes(qW))&&(!qC||low(e.CaseNumbers).includes(qC))
+    &&(!q||low([e.ReportID,e.OriginalReportID,e.Locations,e.AreasMentioned,blPeopleOf(e).map(p=>p.name).join(' '),e.WorkOrders,e.CaseNumbers,e.Subcategory,e.Category,e.LocationRaw,e.ZoneCode,e.Summary,e.ActionsTaken,e.SubjectIDs,e.SourceFile].join(' ')).includes(q)));
   const key={date:e=>Number.isFinite(e._t)?e._t:-Infinity,report:e=>blReportKey(e.ReportID),zone:e=>(e.LocationRaw||'~').toUpperCase(),
     type:e=>EVL_OF(e.EventType),cat:e=>e.Category||'~',shift:e=>e.Shift||'~'}[f.sort]||(e=>e._t);
   const dir=f.dir==='asc'?1:-1;
   return rows.sort((a,b)=>{const x=key(a),y=key(b);if(x<y)return -dir;if(x>y)return dir;return (b._t||0)-(a._t||0)});
 }
-function blActiveFilters(){const f=ui.f.blotter;return ['q','qEntry','qLoc','zone','from','to'].filter(k=>f[k]).length+['ev','cat','shift','fac','inc'].filter(k=>f[k].length).length}
+function blActiveFilters(){const f=ui.f.blotter;return ['q','qEntry','qLoc','qWO','qCS','zone','from','to'].filter(k=>f[k]).length+['ev','cat','shift','fac','inc'].filter(k=>f[k].length).length}
 function blMS(key,label,opts){
   const sel=ui.f.blotter[key],n=sel.length;
   return `<details class="ms" data-ms="${key}"><summary>${esc(label)}: <b data-ms-sum="${key}">${n?n+' selected':'All'}</b></summary><div class="ms-list">${opts.map(o=>{const v=typeof o==='object'?o.v:o,l=typeof o==='object'?o.l:o;return `<label class="chk"><input type="checkbox" data-mf="${key}" value="${esc(v)}" ${sel.includes(v)?'checked':''}> ${esc(l)}</label>`}).join('')||'<span class="sub">Nothing to choose yet.</span>'}</div></details>`;
@@ -3142,7 +3298,7 @@ LISTS.blotterBar=function(){
 LISTS.blotterBody=function(){
   const f=ui.f.blotter,rows=blFilteredRows(),shown=rows.slice(0,f.limit);
   if(!rows.length)return `<tr><td colspan="6"><div class="empty">No entries match these filters.</div></td></tr>`;
-  return shown.map(e=>`<tr class="row" tabindex="0" data-act="open" data-k="bl" data-id="${esc(e.ReportID)}"><td><span class="idtag">${esc(e.ReportID)}</span><br><b>${esc(EVL_OF(e.EventType))}</b><small>${esc(e.Subcategory)}</small></td><td>${Number.isFinite(e._t)?fmtDT(e.OccurredAt):'Date not readable'}${e.PrevEvening==='Y'&&e.DutyDate?`<small>blotter of ${esc(fmtD(e.DutyDate+'T12:00:00'))}</small>`:''}${e.TimeRaw&&!/^\d{4}$/.test(e.TimeRaw)?`<small>written as ${esc(e.TimeRaw)}</small>`:''}</td><td>${esc(e.Shift||'—')}</td><td>${esc(e.Locations||e.LocationRaw||'Not recorded')}<small>${e.Locations&&e.LocationRaw&&e.Locations.toUpperCase()!==e.LocationRaw.toUpperCase()?'as written: '+esc(e.LocationRaw):esc(e.ZoneCode||'')}</small>${blPeopleOf(e).length?`<small>${esc(blPeopleOf(e).map(p=>p.name||('#'+p.bk)).join(', '))}</small>`:''}</td><td>${esc(e.Category||'Missing')}</td><td>${e.IsIncident==='Y'?chip('Incident','c-amber'):''} ${e.UseOfForce==='Y'?chip('Force','c-red'):''} ${e.EventType==='PREA'?chip('PREA','c-red'):''} ${e.Flagged==='Y'?chip('Follow-up','c-red'):''} ${e.NeedsReview==='Y'?chip('Review','c-amber'):''} ${e.CandidateFind==='Y'?chip('Possible find '+e.FindState.toLowerCase(),e.FindState==='Confirmed'?'c-green':'c-steel'):''}</td></tr>`).join('');
+  return shown.map(e=>`<tr class="row" tabindex="0" data-act="open" data-k="bl" data-id="${esc(e.ReportID)}"><td><span class="idtag">${esc(e.ReportID)}</span><br><b>${esc(EVL_OF(e.EventType))}</b><small>${esc(e.Subcategory)}</small>${e.WorkOrders?`<small>Work order ${esc(e.WorkOrders)}</small>`:''}${e.CaseNumbers?`<small>Case ${esc(e.CaseNumbers)}</small>`:''}</td><td>${Number.isFinite(e._t)?fmtDT(e.OccurredAt):'Date not readable'}${e.PrevEvening==='Y'&&e.DutyDate?`<small>blotter of ${esc(fmtD(e.DutyDate+'T12:00:00'))}</small>`:''}${e.TimeRaw&&!/^\d{4}$/.test(e.TimeRaw)?`<small>written as ${esc(e.TimeRaw)}</small>`:''}</td><td>${esc(e.Shift||'—')}</td><td>${esc(e.Locations||e.LocationRaw||'Not recorded')}<small>${e.Locations&&e.LocationRaw&&e.Locations.toUpperCase()!==e.LocationRaw.toUpperCase()?'as written: '+esc(e.LocationRaw):esc(e.ZoneCode||'')}</small>${blPeopleOf(e).length?`<small>${esc(blPeopleOf(e).map(p=>p.name||('#'+p.bk)).join(', '))}</small>`:''}</td><td>${esc(e.Category||'Missing')}</td><td>${e.IsIncident==='Y'?chip('Incident','c-amber'):''} ${e.UseOfForce==='Y'?chip('Force','c-red'):''} ${e.EventType==='PREA'?chip('PREA','c-red'):''} ${e.Flagged==='Y'?chip('Follow-up','c-red'):''} ${e.NeedsReview==='Y'?chip('Review','c-amber'):''} ${e.CandidateFind==='Y'?chip('Possible find '+e.FindState.toLowerCase(),e.FindState==='Confirmed'?'c-green':'c-steel'):''}</td></tr>`).join('');
 };
 LISTS.blotterMore=function(){
   const f=ui.f.blotter,rows=blFilteredRows();
@@ -3155,8 +3311,9 @@ function blEntriesSection(){
   const cats=[...new Set(rows.map(e=>e.Category||'Missing'))].sort();
   const shifts=['1ST','2ND','3RD'].filter(s=>rows.some(e=>e.Shift===s)).concat(rows.some(e=>!e.Shift)?['None']:[]);
   const facs=[...new Set(rows.map(e=>fac[e.ZoneCode]||'Unmapped'))].sort();
-  return `<section class="sec"><h2>Entries</h2>
-  <div class="filters"><input type="search" placeholder="Search everything: number, name, booking number, narrative…" aria-label="Search all entries" value="${esc(f.q)}" data-f="blotter.q"></div>
+  return `<section class="sec" id="bl-entries"><h2>Entries</h2>
+  <div class="filters"><input type="search" placeholder="Search everything: number, name, booking number, narrative…" aria-label="Search all entries" value="${esc(f.q)}" data-f="blotter.q"><input type="search" placeholder="Work order #" aria-label="Filter by work order number" value="${esc(f.qWO)}" data-f="blotter.qWO" style="max-width:170px"><input type="search" placeholder="Case #" aria-label="Filter by case number" value="${esc(f.qCS)}" data-f="blotter.qCS" style="max-width:190px"></div>
+  <div class="filters sortbar"><span class="lbl">Sort report numbers</span><span class="seg" role="group" aria-label="Sort by report number"><button class="segb${f.sort==='report'&&f.dir==='asc'?' on':''}" data-act="blSortReport" data-dir="asc">▲ Low to high</button><button class="segb${f.sort==='report'&&f.dir==='desc'?' on':''}" data-act="blSortReport" data-dir="desc">▼ High to low</button></span><label class="inl">Or sort by <select data-f="blotter.sort" aria-label="Sort by">${BL_SORTS.map(o=>optHtml(o,f.sort)).join('')}</select></label><button class="btn small" data-act="blSortDir" aria-label="Reverse the sort order">${f.dir==='asc'?'Ascending ▲':'Descending ▼'}</button></div>
   <div data-list="blotterBar">${LISTS.blotterBar()}</div>
   <div class="scroll"><table class="tbl bltbl"><thead><tr>${th('report','Entry')}${th('date','When')}${th('shift','Shift')}${th('zone','Unit or area')}${th('cat','Category')}<th>Flags</th></tr>
   <tr class="filterrow"><th>${blMS('ev','Type',evopts)}<input type="search" data-f="blotter.qEntry" value="${esc(f.qEntry)}" placeholder="Number or text" aria-label="Filter by report number or entry text"></th>
@@ -3197,6 +3354,7 @@ PAGES.blotter=function(){
   const evopts=Object.keys(EVL).filter(k=>rows.some(e=>e.EventType===k)).map(k=>({v:k,l:EVL[k]}));
   return head('Jail blotter',`Shift incident log. Windows count back from ${asof}, the latest entry loaded.`,acts)
   +`<div class="notice">${!blStorageOK?'<b>This browser will not save blotter data here.</b> That usually means the page was opened directly as a file rather than over http/https, or the browser is in a private/incognito mode that blocks local storage. Everything below still works for this session -- import, log entries, review -- but nothing is kept once the tab closes. Open the file in a different browser, or host it, if you need it to persist.':B.source==='sample'?'Invented sample entries. Import a monthly workbook or log an entry to switch to real, persisted data.':`<b>Stored on this device.</b> ${blMarkText()} Entries can contain names and other personal details.`}</div>`
+  +blQuickLinks()
   +`<div class="strip"><div class="st"><div class="l">Entries loaded</div><div class="v">${rows.length}</div><div class="d">${B.review.length?`${B.review.length} flagged for review`:"None flagged for review"}</div></div>
     <div class="st"><div class="l">Security incidents, 30 days</div><div class="v">${inc30}</div><div class="d"><span class="${dl>0?'up':dl<0?'down':''}">${dl>0?'+':dl<0?'-':''}${Math.abs(dl)}</span> vs prior 30 days</div></div>
     <div class="st"><div class="l">Code Two, 14 days</div><div class="v">${c2}</div><div class="d">Disturbances and fights</div></div>
@@ -3205,16 +3363,16 @@ PAGES.blotter=function(){
   +(pats.length?`<section class="sec light"><h2>Patterns worth acting on</h2><div class="duo">${pats.map(patHtml).join('')}</div></section>`:'')
   +`<div class="duo"><section class="sec"><h2>Units and areas</h2><div class="tabs" role="tablist">${BL_LAYERS.map(l=>`<button class="tab ${ui.bl.layer===l[0]?'on':''}" role="tab" aria-selected="${ui.bl.layer===l[0]}" data-act="bllayer" data-v="${l[0]}">${l[1]}</button>`).join('')}</div>${blMapSvg()}<div class="legend"><span>Lower</span><i></i><span>Higher</span><span>Last 30 days. Select a tile to filter the entries below. The layout is schematic.</span></div></section>
    <section class="sec"><h2>Security incidents per week</h2>${columns(wk.v,wk.labels,'Security incidents per week, last 8 weeks',wkProj)}${wkProj!=null?`<p class="sub">Next week, projected from an 8-week straight-line trend: <b>${wkProj}</b>. A simple projection, not a forecast model -- see the guide before reading much into it.</p>`:''}<h2 style="margin-top:22px">When incidents are logged</h2>${dowHeat(inc.map(e=>({date:e.OccurredAt})))}<p class="sub">Last 60 days, by day of week and four-hour block, in the times as written in the blotter.</p></section></div>`
-  +`<div class="duo"><section class="sec"><h2>Entry types, 30 days</h2>${hbars(evs)}</section><section class="sec"><h2>Possible contraband finds</h2>${pend.length||rows.some(e=>e.CandidateFind==='Y')?rows.filter(e=>e.CandidateFind==='Y').sort((a,b)=>b._t-a._t).slice(0,6).map(e=>`<div class="qrow" style="cursor:default"><span class="t"><b>${esc(e.CandidateType||'Other')}, ${esc(blZoneName(e.ZoneCode))}</b><small>${esc(e.ReportID)}, ${fmtDT(e.OccurredAt)}</small></span>${e.FindState==='Pending'?`<button class="btn small" data-act="blConfirm" data-id="${esc(e.ReportID)}">Confirm</button><button class="btn small" data-act="blReject" data-id="${esc(e.ReportID)}">Reject</button>`:chip(e.FindState,e.FindState==='Confirmed'?'c-green':'c-grey')}</div>`).join(''):'<p class="sub">No entries look like a contraband find.</p>'}<p class="sub">Routine inspections that say no contraband was found are ignored. Confirming opens the find form; the narrative is not copied.</p></section></div>`
-  +blEntriesSection()+blLocationsSection()
-  +`<section class="sec light"><h2>Import report</h2>${blRepHtml()}</section>`
-  +(B.review.length?`<section class="sec light"><h2>Flagged for review (${B.review.length})</h2><p class="sub">These are stored and included in every count, list and digest, exactly as the blotter has them. The flag says what looked wrong -- a missing category, a report number used twice, a time that isn't a real time -- so someone can check it against the original. Open one to edit it, or mark it reviewed if it's right as it is.</p><div class="scroll"><table class="tbl"><thead><tr><th>Entry</th><th>Category</th><th>Subcategory</th><th>Location</th><th>Why flagged</th></tr></thead><tbody>${B.review.map(e=>`<tr class="row" tabindex="0" data-act="open" data-k="bl" data-id="${esc(e.ReportID)}"><td><span class="idtag">${esc(e.ReportID)}</span></td><td>${esc(e.Category||'Missing')}</td><td>${esc(e.Subcategory||'Missing')}</td><td>${esc(e.LocationRaw||'Missing')}</td><td>${esc(e.QualityFlags)}</td></tr>`).join('')}</tbody></table></div></section>`:'');
+  +`<div class="duo"><section class="sec"><h2>Entry types, 30 days</h2>${hbars(evs)}</section><section class="sec"><h2>Possible contraband finds</h2>${pend.length||rows.some(e=>e.CandidateFind==='Y')?rows.filter(e=>e.CandidateFind==='Y').sort((a,b)=>b._t-a._t).slice(0,6).map(e=>`<div class="qrow" style="cursor:default"><span class="t"><b>${esc(e.CandidateType||'Other')}, ${esc(blZoneName(e.ZoneCode))}</b><small>${esc(e.ReportID)}, ${fmtDT(e.OccurredAt)}</small></span>${e.FindState==='Pending'?`<button class="btn small" data-act="open" data-k="bl" data-id="${esc(e.ReportID)}">Read</button><button class="btn small" data-act="blConfirm" data-id="${esc(e.ReportID)}">Confirm</button><button class="btn small" data-act="blReject" data-id="${esc(e.ReportID)}">Reject</button>`:chip(e.FindState,e.FindState==='Confirmed'?'c-green':'c-grey')}</div>`).join(''):'<p class="sub">No entries look like a contraband find.</p>'}<p class="sub">Routine inspections that say no contraband was found are ignored. Read an entry first if you need the context; the find form shows it beside the fields.</p></section></div>`
+  +blEntriesSection()+blLocationsSection()+blReviewSection()
+  +`<section class="sec light"><h2>Import report</h2>${blRepHtml()}</section>`;
 };
 const BL_NOTE_TEXT={
   CategoryMissing:['Needs review','No category on the blotter, and none could be worked out from the entry. Set one with Edit entry.'],
   TimestampBad:['Needs review','The time written on the blotter isn\u2019t a real time (for example "4020"). The date comes from the report number. Set the right time with Edit entry, or mark it reviewed if it can\u2019t be known.'],
   ShiftMissing:['Needs review','No shift could be read for this entry.'],
   DuplicateReportID:['Needs review','This report number is also used by another entry, and the blotter doesn\u2019t say which one it belongs to.'],
+  MultipleUnits:['Needs review','Names more than one unit (for example Unit 1A, Unit 2A). Every unit named is kept, so the entry counts toward each one. Check that it belongs to all of them, edit the unit list if not, or mark it reviewed if it does.'],
   TimestampFromReportID:['Note','Date taken from the report number.'],
   ReportNumberDateCorrected:['Note','The "Report #" line on the blotter had the wrong date; the blotter\u2019s own date was used.'],
   ReportNumberCorrected:['Note','The "Report #" line repeated another entry\u2019s number; this entry\u2019s own number on the blotter was used.'],
@@ -3246,8 +3404,9 @@ function drBL(id){
   const e=blFind(id);if(!e)return '<p>Record not found.</p>';
   const bks=e.SubjectIDs?e.SubjectIDs.split(';'):[];
   const linkedReports=bks.map(b=>subjByBk(b)).filter(Boolean).flatMap(s=>S.reports.filter(r=>r.subjects.includes(s.id)).map(r=>({s,r})));
-  return `<div class="dh"><span class="idtag">${esc(e.ReportID)}</span>${e.HandlingMode==='Stub'?chip('Counts only'):chip('Full entry','c-steel')}${e.IsIncident==='Y'?chip('Incident','c-amber'):''}${e.UseOfForce==='Y'?chip('Force used','c-red'):''}${e.Flagged==='Y'?chip('Flagged for follow-up','c-red'):''}${e.NeedsReview==='Y'?chip('Flagged for review','c-amber'):''}${e.OriginalReportID?chip('Blotter number '+e.OriginalReportID+' used twice'):''}${e.RefAsWritten?chip('Typed on blotter as '+e.RefAsWritten.replace('Report ','')):''}${e.Amended==='Y'?chip('Amended','c-steel'):''}</div><h2>${esc(EVL_OF(e.EventType))}</h2>
-  <dl class="kv"><dt>When</dt><dd>${fmtDT(e.OccurredAt)}</dd>${e.DutyDate?`<dt>Duty day</dt><dd>${esc(fmtD(e.DutyDate+'T12:00:00'))}${e.PrevEvening==='Y'?' <span class="sub">(3rd shift starts at 23:00 the evening before)</span>':''}</dd>`:''}<dt>Shift</dt><dd>${esc(e.Shift)}</dd><dt>Unit or area</dt><dd>${esc(e.Locations||e.LocationRaw||'Not recorded')}${e.Locations&&e.LocationRaw&&e.Locations.toUpperCase()!==e.LocationRaw.toUpperCase()?`<br><span class="sub">as written: ${esc(e.LocationRaw)}</span>`:''}${e.LocationNorm?` <button class="lnk" data-act="blMapLoc" data-key="${esc(e.LocationNorm)}">${e.ZoneCode==='UNMAPPED'?'Map this location':'Change mapping'}</button>`:''} <span class="sub">${esc(e.ZoneCode||'')}</span></dd><dt>Category</dt><dd>${esc(e.Category||'Missing')}</dd><dt>Subcategory</dt><dd>${esc(e.Subcategory)}</dd>${e.AreasMentioned?`<dt>Also mentioned</dt><dd>${esc(e.AreasMentioned.split('; ').join(', '))} <span class="sub">(in the narrative)</span></dd>`:''}<dt>People</dt><dd>${blPeopleOf(e).length?`<ul class="people">${blPeopleOf(e).map(p=>{const s=subjByBk(p.bk);return `<li><b>${esc(p.name||'Name not written')}</b> #${esc(p.bk)} ${s?`<button class="lnk" data-act="open" data-k="subj" data-id="${s.id}">Subject ${esc(s.id)}</button>`:`<button class="lnk" data-act="blWatch" data-bk="${esc(p.bk)}" data-name="${esc(p.name)}" data-zone="${esc(e.ZoneCode)}">Add to Subjects</button>`} · <button class="lnk" data-act="blPersonEntries" data-bk="${esc(p.bk)}">All entries</button></li>`}).join('')}</ul>`:'None named'}</dd><dt>Source file</dt><dd>${esc(e.SourceFile||'None')}</dd></dl>
+  const revNav=blRevNavHtml(e);
+  return `<div class="dh"><span class="idtag">${esc(e.ReportID)}</span>${e.HandlingMode==='Stub'?chip('Counts only'):chip('Full entry','c-steel')}${e.IsIncident==='Y'?chip('Incident','c-amber'):''}${e.UseOfForce==='Y'?chip('Force used','c-red'):''}${e.Flagged==='Y'?chip('Flagged for follow-up','c-red'):''}${e.NeedsReview==='Y'?chip('Flagged for review','c-amber'):''}${e.OriginalReportID?chip('Blotter number '+e.OriginalReportID+' used twice'):''}${e.RefAsWritten?chip('Typed on blotter as '+e.RefAsWritten.replace('Report ','')):''}${e.Amended==='Y'?chip('Amended','c-steel'):''}</div>${revNav}<h2>${esc(EVL_OF(e.EventType))}</h2>
+  <dl class="kv"><dt>When</dt><dd>${fmtDT(e.OccurredAt)}</dd>${e.DutyDate?`<dt>Duty day</dt><dd>${esc(fmtD(e.DutyDate+'T12:00:00'))}${e.PrevEvening==='Y'?' <span class="sub">(3rd shift starts at 23:00 the evening before)</span>':''}</dd>`:''}<dt>Shift</dt><dd>${esc(e.Shift)}</dd><dt>Unit or area</dt><dd>${esc(e.Locations||e.LocationRaw||'Not recorded')}${e.Locations&&e.LocationRaw&&e.Locations.toUpperCase()!==e.LocationRaw.toUpperCase()?`<br><span class="sub">as written: ${esc(e.LocationRaw)}</span>`:''}${e.LocationNorm?` <button class="lnk" data-act="blMapLoc" data-key="${esc(e.LocationNorm)}">${e.ZoneCode==='UNMAPPED'?'Map this location':'Change mapping'}</button>`:''} <span class="sub">${esc(e.ZoneCode||'')}</span></dd><dt>Category</dt><dd>${esc(e.Category||'Missing')}</dd><dt>Subcategory</dt><dd>${esc(e.Subcategory)}</dd>${e.AreasMentioned?`<dt>Also mentioned</dt><dd>${esc(e.AreasMentioned.split('; ').join(', '))} <span class="sub">(in the narrative)</span></dd>`:''}<dt>People</dt><dd>${blPeopleOf(e).length?`<ul class="people">${blPeopleOf(e).map(p=>{const s=subjByBk(p.bk);return `<li><b>${esc(p.name||'Name not written')}</b> #${esc(p.bk)} ${s?`<button class="lnk" data-act="open" data-k="subj" data-id="${s.id}">Subject ${esc(s.id)}</button>`:`<button class="lnk" data-act="blWatch" data-bk="${esc(p.bk)}" data-name="${esc(p.name)}" data-zone="${esc(e.ZoneCode)}">Add to Subjects</button>`} · <button class="lnk" data-act="blPersonEntries" data-bk="${esc(p.bk)}">All entries</button></li>`}).join('')}</ul>`:'None named'}</dd>${e.WorkOrders?`<dt>Work orders</dt><dd>${e.WorkOrders.split('; ').map(w=>`<button class="lnk" data-act="blRefFilter" data-k="qWO" data-v="${esc(w)}" title="List every entry with this work order">${esc(w)}</button>`).join(', ')}</dd>`:''}${e.CaseNumbers?`<dt>Case numbers</dt><dd>${e.CaseNumbers.split('; ').map(w=>`<button class="lnk" data-act="blRefFilter" data-k="qCS" data-v="${esc(w)}" title="List every entry with this case number">${esc(w)}</button>`).join(', ')}</dd>`:''}<dt>Source file</dt><dd>${esc(e.SourceFile||'None')}</dd></dl>
   ${e.HandlingMode==='Full'?`<h3>Summary</h3><p class="prose">${esc(e.Summary)}</p>${e.ActionsTaken?`<h3>Actions taken</h3><p class="prose">${esc(e.ActionsTaken)}</p>`:''}`:'<p class="sub">Counts only. The narrative and booking numbers for this type of entry are not imported. Details stay in the blotter.</p>'}
   ${e.Amendments&&e.Amendments.length?`<h3>Amendments</h3><ul class="notes">${e.Amendments.map(a=>`<li>${a.dated?'Dated '+esc(fmtD(a.dated+'T12:00:00'))+', ':''}applied ${fmtDT(a.at)}${a.by?' — '+esc(a.by):''}${a.ref?' — '+esc(a.ref):''}. ${a.changes?a.changes+' field'+(a.changes>1?'s':'')+' changed; see history below.':'No fields changed.'}</li>`).join('')}</ul>`:''}
   ${blNotesHtml(e)}
@@ -3256,15 +3415,15 @@ function drBL(id){
   ${linkedReports.length?`<h3>Also on the record</h3><p class="sub">A booking number on this entry also appears on an intel report.</p>${linkedReports.map(({s,r})=>`<button class="qrow" data-act="open" data-k="ir" data-id="${r.id}"><span class="t"><b>${esc(r.title)}</b><small>${esc(r.id)}, about ${esc(s.name)}</small></span></button>`).join('')}`:''}
   <div class="actions">
   ${e.CandidateFind==='Y'?(e.FindState==='Pending'?`<button class="btn primary" data-act="blConfirm" data-id="${esc(e.ReportID)}">Confirm as a find</button><button class="btn" data-act="blReject" data-id="${esc(e.ReportID)}">Reject</button>`:chip('Possible find '+e.FindState.toLowerCase(),'c-grey')):''}
-  <button class="btn primary" data-act="blEdit" data-id="${esc(e.ReportID)}">Edit entry</button><button class="btn" data-act="blAmendThis" data-id="${esc(e.ReportID)}">Apply amendment</button>${e.NeedsReview==='Y'?`<button class="btn" data-act="blReviewed" data-id="${esc(e.ReportID)}">Mark as reviewed</button>`:''}
+  <button class="btn${e.NeedsReview==='Y'?'':' primary'}" data-act="blEdit" data-id="${esc(e.ReportID)}">Edit entry</button><button class="btn" data-act="blAmendThis" data-id="${esc(e.ReportID)}">Apply amendment</button>${e.NeedsReview==='Y'?`<button class="btn primary" data-act="blReviewedNext" data-id="${esc(e.ReportID)}">Mark reviewed, then next →</button><button class="btn" data-act="blReviewed" data-id="${esc(e.ReportID)}">Mark as reviewed</button>`:''}
   <button class="btn" data-act="blFlagToggle" data-id="${esc(e.ReportID)}">${e.Flagged==='Y'?'Clear follow-up flag':'Flag for follow-up'}</button>
   
   </div>`;
 }
 function blHist(s){
   if(!B)return '';const bk=bkOf(s);if(!bk)return '';
-  const es=B.rows.filter(e=>e.SubjectIDs&&e.SubjectIDs.split(';').includes(bk)).sort((a,b)=>b._t-a._t);
-  return `<h3>Blotter entries (${es.length})</h3><p class="sub">Matched on booking number ${esc(bk)}${blPersistable()?' in this device\u2019s stored blotter.':' in the blotter loaded in this tab.'}</p>${es.slice(0,6).map(e=>`<button class="qrow" data-act="open" data-k="bl" data-id="${esc(e.ReportID)}"><span class="t"><b>${esc(EVL_OF(e.EventType))}</b><small>${esc(e.ReportID)}, ${esc(e.LocationRaw||'No location')}, ${fmtD(e.OccurredAt)}</small></span>${e.UseOfForce==='Y'?chip('Force','c-red'):''}</button>`).join('')||'<p class="sub">None.</p>'}`;
+  const es=B.rows.filter(e=>blPeopleOf(e).some(p=>p.bk===bk)).sort((a,b)=>b._t-a._t),inc=es.filter(e=>e.IsIncident==='Y').length;
+  return `<h3>Blotter entries (${es.length})</h3><p class="sub">Matched on booking number ${esc(bk)}${blPersistable()?' in this device\u2019s stored blotter.':' in the blotter loaded in this tab.'}${es.length?` ${inc} security incident${inc===1?'':'s'}.`:''}${s.src==='blotter'?' This subject was created automatically from the blotter.':''}</p>${es.slice(0,8).map(e=>`<button class="qrow" data-act="open" data-k="bl" data-id="${esc(e.ReportID)}"><span class="t"><b>${esc(EVL_OF(e.EventType))}</b><small>${esc(e.ReportID)}, ${esc(e.Locations||e.LocationRaw||'No location')}, ${fmtD(e.OccurredAt)}</small></span>${e.UseOfForce==='Y'?chip('Force','c-red'):''}</button>`).join('')||'<p class="sub">None.</p>'}${es.length>8?`<button class="lnk" data-act="blPersonEntries" data-bk="${esc(bk)}">See all ${es.length} entries</button>`:''}`;
 }
 
 
@@ -3290,18 +3449,19 @@ function blEditDlg(id,opt){
   <label class="fld"><span>Shift</span><select id="edShift">${['','1ST','2ND','3RD'].map(s=>`<option value="${s}" ${e.Shift===s?'selected':''}>${s||'Not recorded'}</option>`).join('')}</select></label>
   <label class="fld"><span>Category</span><select id="edCat"><option value="">Missing</option>${cats.map(c=>`<option ${e.Category===c?'selected':''}>${c}</option>`).join('')}</select></label>
   <label class="fld wide"><span>Subcategory</span><input id="edSub" value="${esc(e.Subcategory)}"></label>
-  <label class="fld wide"><span>Unit or area</span><input id="edLoc" list="edLocList" value="${esc(e.LocationRaw)}"><datalist id="edLocList">${zl}</datalist></label>
+  <label class="fld wide"><span>Unit or area <small>(several units or areas: separate with commas, for example Unit 1A, Unit 2A)</small></span><input id="edLoc" list="edLocList" value="${esc(e.LocationRaw)}"><datalist id="edLocList">${zl}</datalist></label>
   <label class="fld wide"><span>Booking numbers</span><input id="edIds" value="${esc((e.SubjectIDs||'').split(';').filter(Boolean).join(', '))}" placeholder="Comma-separated"></label>
   <label class="fld wide"><span>Summary</span><textarea id="edSum" rows="4">${esc(e.Summary)}</textarea></label>
   <label class="fld wide"><span>Actions taken</span><textarea id="edAct" rows="3">${esc(e.ActionsTaken)}</textarea></label>
   <label class="fld wide"><span>Note (optional)</span><input id="edNote" placeholder="Why the change -- e.g. checked against the original blotter"></label>
-  ${e.NeedsReview==='Y'?'<fieldset class="fld wide"><div class="checks"><label class="chk"><input type="checkbox" id="edReviewed" checked> Mark as reviewed</label></div></fieldset>':''}
+  ${e.NeedsReview==='Y'?'<fieldset class="fld wide"><div class="checks"><label class="chk"><input type="checkbox" id="edReviewed" checked> Mark as reviewed</label><label class="chk"><input type="checkbox" id="edNext" checked> Then open the next flagged entry</label></div></fieldset>':''}
   </div><div class="err" id="edErr" role="alert"></div>
   <div class="acts"><button class="btn primary" id="edSave">${am?'Apply amendment':'Save changes'}</button><button class="btn" data-act="closeModal">Cancel</button></div>`);
   $('#edSave').onclick=()=>blSaveEdit(e,opt);
 }
 async function blSaveEdit(e,opt){
   opt=opt||{};const am=opt.amend;
+  const goNext=!!($('#edNext')&&$('#edNext').checked&&!am&&!opt.entry),nextFlagged=goNext?blReviewNext(e.ReportID):null;
   const err=$('#edErr');err.textContent='';
   const date=$('#edDate').value,time=$('#edTime').value||'00:00';
   if(!date){err.textContent='Choose a date.';return}
@@ -3321,7 +3481,7 @@ async function blSaveEdit(e,opt){
     LocationRaw:fresh.LocationRaw,LocationNorm:fresh.LocationNorm,ZoneCode:fresh.ZoneCode,SubjectIDs:fresh.SubjectIDs,Summary:fresh.Summary,ActionsTaken:fresh.ActionsTaken,
     CandidateFind:fresh.CandidateFind,CandidateType:fresh.CandidateType,TimeRaw:hhmm,
     // keep the import's notes (corrected numbers and so on), but drop problems the edit has now fixed
-    QualityFlags:[...new Set((e.QualityFlags||'').split(';').filter(f=>f&&!['CategoryMissing','TimestampBad','ShiftMissing','TimestampFromReportID','LocationMissing','LocationUnmapped'].includes(f)).concat((fresh.QualityFlags||'').split(';').filter(Boolean)))].join(';')
+    QualityFlags:[...new Set((e.QualityFlags||'').split(';').filter(f=>f&&!['CategoryMissing','TimestampBad','ShiftMissing','TimestampFromReportID','LocationMissing','LocationUnmapped','MultipleUnits'].includes(f)).concat((fresh.QualityFlags||'').split(';').filter(Boolean)))].join(';')
   });
   if(rec.CandidateFind==='Y'&&e.CandidateFind!=='Y')rec.FindState='Pending';
   if(rec.CandidateFind!=='Y')rec.FindState='None';
@@ -3334,17 +3494,69 @@ async function blSaveEdit(e,opt){
   rec.EditHistory=(e.EditHistory||[]).concat(changes.length||am?[{at:new Date().toISOString(),who:am?'Amendment'+(am.by?' ('+am.by+')':''):'Analyst (demo)',changes,note:am?[am.ref,am.dated&&'dated '+am.dated,note].filter(Boolean).join(', '):note}]:[]);
   await blPutAll('entries',[rec]);
   blReplaceInB(rec);
+  const made=blAutoSubjects([rec]);
   log(am?'Applied blotter amendment':changes.length?'Edited blotter entry':'Marked blotter entry reviewed',e.ReportID+(am&&am.ref?' from '+am.ref:'')+(changes.length?': '+changes.map(c=>c.field).join(', '):''));
-  closeModal();if(opt.entry){ui.stack=[{k:'bl',id:e.ReportID}]}render();renderDrawer();
-  toast(am?`Amendment applied to ${e.ReportID}${changes.length?` (${changes.length} change${changes.length>1?'s':''})`:''}`:changes.length?`Saved ${changes.length} change${changes.length>1?'s':''} to ${e.ReportID}`:'Marked as reviewed');
+  closeModal();if(opt.entry){ui.stack=[{k:'bl',id:e.ReportID}]}else if(nextFlagged){ui.stack=[{k:'bl',id:nextFlagged}]}render();renderDrawer();
+  toast((made?`${made} subject${made>1?'s':''} created. `:'')+(am?`Amendment applied to ${e.ReportID}${changes.length?` (${changes.length} change${changes.length>1?'s':''})`:''}`:changes.length?`Saved ${changes.length} change${changes.length>1?'s':''} to ${e.ReportID}`:'Marked as reviewed')+(goNext&&!nextFlagged?' That was the last flagged entry.':''));
 }
-async function blMarkReviewed(id){
+async function blMarkReviewed(id,goNext){
   const e=blFind(id);if(!e)return;
+  const next=goNext?blReviewNext(id):null;
   const rec=Object.assign({},e,{Reviewed:'Y',ReviewedAt:new Date().toISOString()});
   await blPutAll('entries',[rec]);blReplaceInB(rec);
-  log('Marked blotter entry reviewed',id);render();renderDrawer();toast('Marked as reviewed');
+  log('Marked blotter entry reviewed',id);
+  if(goNext&&next)ui.stack=[{k:'bl',id:next}];
+  render();renderDrawer();
+  toast(goNext?(next?`Marked as reviewed. ${B.review.length} left to review.`:'Marked as reviewed. That was the last flagged entry.'):'Marked as reviewed');
 }
 
+
+
+/* ---- subjects created from the blotter ----
+   Where an entry names an inmate the way the blotter normally does -- "Inmate J. Doe #1000001", the
+   word inmate, then initial and last name, then the booking number -- a Subject is created for that
+   booking number, once. Every later entry naming the same booking number is linked to it by the
+   booking number (subject page, entry view, link analysis), so one subject carries all their incidents.
+   PREA entries never create subjects. A watch level is never set automatically. */
+let BL_BOOT_NOTE='';
+function blAutoOn(){return S.blAutoSubjects!==false}
+function blAutoSubjects(rows,opt){
+  opt=opt||{};if(!blAutoOn()&&!opt.force)return 0;
+  S.blSeen=S.blSeen||{};
+  const best=new Map();
+  (rows||[]).forEach(e=>{
+    if(e.EventType==='PREA')return;
+    blPeopleOf(e).forEach(p=>{
+      if(!p.inm||!p.name||String(p.bk).length<6)return;
+      const c=best.get(p.bk)||{bk:p.bk,name:'',zones:new Map()};
+      if(!c.name||(c.name.length<p.name.length&&!/\./.test(p.name)))c.name=p.name;
+      blZonesOf(e).forEach(z=>c.zones.set(z,(c.zones.get(z)||0)+1));
+      best.set(p.bk,c);
+    });
+  });
+  let made=0,marked=0;
+  best.forEach(c=>{
+    if(S.blSeen[c.bk]&&!opt.all)return;
+    if(!S.blSeen[c.bk]){S.blSeen[c.bk]=1;marked++}
+    if(subjByBk(c.bk))return;
+    const zone=[...c.zones.entries()].sort((a,b)=>b[1]-a[1]).map(x=>x[0]).find(z=>ZONES.some(q=>q.id===z))||'';
+    const rec={id:nextId('S-',S.subjects,2),name:c.name,alias:'',type:'Detainee',ref:c.bk,zone,group:'',watch:'None',review:'',basis:'',notes:'',photo:'',src:'blotter',created:new Date().toISOString()};
+    S.subjects.push(rec);subjIndex().set(c.bk,rec);made++;
+  });
+  if(made)log('Created subjects from the blotter',`${made} inmate${made>1?'s':''} named with a booking number`);
+  else if(marked)persist();
+  return made;
+}
+function blAutoRemovable(s){
+  return s.src==='blotter'&&s.watch==='None'&&!s.basis&&!s.photo&&!s.alias&&!s.group&&!s.notes
+    &&!S.reports.some(r=>r.subjects.includes(s.id))&&!S.contraband.some(c=>c.subjects.includes(s.id));
+}
+function blRemoveAutoDlg(){
+  const all=S.subjects.filter(s=>s.src==='blotter'),gone=all.filter(blAutoRemovable);
+  openModal(`<h2>Remove subjects created from the blotter?</h2><p>${gone.length} of the ${all.length} subjects created automatically from the blotter have never been used: no watch level, no notes, no photo, and no report or find linked to them. They will be removed. ${all.length-gone.length?`The other ${all.length-gone.length} stay, because you've used them.`:''}</p><p class="sub">The blotter entries themselves are not touched, and the people are still listed under People in the blotter. Anyone removed won't be created again unless you choose "Create subjects for everyone listed".</p>
+  <div class="acts"><button class="btn primary" id="raGo" ${gone.length?'':'disabled'}>Remove ${gone.length}</button><button class="btn" data-act="closeModal">Cancel</button></div>`);
+  $('#raGo').onclick=()=>{const ids=new Set(gone.map(s=>s.id));S.subjects=S.subjects.filter(s=>!ids.has(s.id));SUBJ_IDX=null;log('Removed subjects created from the blotter',gone.length+' removed');closeModal();render();toast(`${gone.length} subjects removed`)};
+}
 
 /* ---- location names the rules don't know ---- */
 /* Personnel don't always name an area the same way. A mapping the analyst saves here is kept
@@ -3375,8 +3587,9 @@ function blRezoneEntry(e){
   // Re-read an entry's location with the current rules and saved mappings.
   const hint=/^ADCA/.test(e.ReportID)?'Annex':'';
   const L=BLC.parseLocations(e.LocationRaw||'',blLocMap(),hint),norm=L.norm,zone=L.zones[0]||'';
-  const flags=(e.QualityFlags||'').split(';').filter(f=>f&&f!=='LocationUnmapped'&&f!=='LocationMissing');
+  const flags=(e.QualityFlags||'').split(';').filter(f=>f&&f!=='LocationUnmapped'&&f!=='LocationMissing'&&f!=='MultipleUnits');
   if(!norm)flags.push('LocationMissing');else if(!zone)flags.push('LocationUnmapped');
+  if(L.zones.filter(z=>/^U-/.test(z)).length>1)flags.push('MultipleUnits');
   return Object.assign({},e,{LocationNorm:norm,ZoneCode:norm?(zone||'UNMAPPED'):'',ZoneCodes:L.zones.join(';'),Locations:L.labels.join(', '),SubAreas:L.subAreas.join('; '),QualityFlags:flags.join(';')});
 }
 async function blApplyLocMapping(key){
@@ -3430,7 +3643,7 @@ function blLocationsSection(){
   const blank=(B?B.rows:[]).filter(e=>!e.LocationNorm).length;
   const saved=Object.entries(blLocMap()).sort((a,b)=>a[0].localeCompare(b[0]));
   if(!un.length&&!saved.length&&!blank)return '';
-  return `<section class="sec light"><h2>Locations not in the rules (${un.length})</h2>
+  return `<section class="sec light" id="bl-locations"><h2>Locations not in the rules (${un.length})</h2>
   <p class="sub">Names the rules didn't recognise. Map each one once and it's remembered: entries already stored move to that unit now, and future blotters using the same name are filed there automatically.${blank?` ${blank} entr${blank>1?'ies have':'y has'} no location written at all; set those one at a time with Edit entry. <button class="lnk" data-act="blShowNoLoc">List them</button>`:''}</p>
   ${un.length?`<div class="scroll"><table class="tbl"><thead><tr><th>Written on the blotter as</th><th class="num">Entries</th><th>Example</th><th></th></tr></thead><tbody>${un.map(g=>`<tr><td><b>${esc(g.key)}</b></td><td class="num">${g.n}</td><td><button class="lnk" data-act="open" data-k="bl" data-id="${esc(g.ex)}">${esc(g.ex)}</button></td><td><button class="btn small primary" data-act="blMapLoc" data-key="${esc(g.key)}">Map…</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="sub">Every location written in the stored blotters is recognised.</p>'}
   ${saved.length?`<h3>Your saved mappings (${saved.length})</h3><div class="scroll"><table class="tbl"><thead><tr><th>Name</th><th>Filed under</th><th class="num">Entries</th><th></th></tr></thead><tbody>${saved.map(([k,c])=>`<tr><td>${esc(k)}</td><td>${esc(blZoneName(c))} <span class="sub">${esc(c)}</span></td><td class="num">${(groups.find(g=>g.key===k)||{n:0}).n}</td><td><button class="lnk" data-act="blMapLoc" data-key="${esc(k)}">Change</button> · <button class="lnk" data-act="blUnmapLoc" data-key="${esc(k)}">Remove</button></td></tr>`).join('')}</tbody></table></div>`:''}
@@ -3456,10 +3669,86 @@ LISTS.blPeople=function(){
     return `<tr><td><button class="lnk" data-act="blPplOpen" data-bk="${esc(x.bk)}" title="Analyze this person's entries">${esc(x.name||'Name not written')}</button></td><td>${esc(x.bk)}</td><td class="num"><button class="lnk" data-act="blPersonEntries" data-bk="${esc(x.bk)}">${x.n}</button></td><td class="num">${x.inc}</td><td>${Number.isFinite(x.last)?fmtD(new Date(x.last).toISOString()):''}</td><td>${top?esc(blZoneName(top[0])):''}</td><td>${s?`<button class="lnk" data-act="open" data-k="subj" data-id="${s.id}">${esc(s.id)}</button>`:`<button class="lnk" data-act="blWatch" data-bk="${esc(x.bk)}" data-name="${esc(x.name)}" data-zone="${esc(top?top[0]:'')}">Add</button>`}</td></tr>`}).join('')}</tbody></table></div>${rows.length>shown.length?`<button class="btn small" data-act="blPplMore">Show 100 more</button>`:''}`;
 };
 function blPeopleSection(){
-  return `<section class="sec light"><h2>People in the blotter</h2><p class="sub">Everyone named in stored blotter entries, read from how the blotter writes them ("J. Doe #1000001", "Roe, R #1000002"). Staff with a rank, work orders and report numbers are left out. This list isn't the Subjects list: add someone to Subjects when there's a reason to keep a record on them, and their name and booking number are filled in for you.</p>
+  const made=S.subjects.filter(s=>s.src==='blotter').length;
+  return `<section class="sec light"><h2>People in the blotter</h2><p class="sub">Everyone named in stored blotter entries, with their booking number. Staff with a rank, work orders and report numbers are left out.</p>
+  <div class="checks" style="max-height:none;margin-bottom:8px"><label class="chk"><input type="checkbox" data-blauto ${blAutoOn()?'checked':''}> Create a subject automatically for each inmate named as "Inmate J. Doe #1000001" (initial, last name, booking number). Every entry with that booking number is then linked to the one subject. PREA entries never create subjects.</label></div>
+  <div class="acts" style="margin:0 0 10px"><button class="btn small" data-act="blMakeAll">Create subjects for everyone listed</button>${made?`<button class="btn small" data-act="blRemoveAuto">Remove unused subjects created from the blotter (${made} created)</button>`:''}</div>
   <div class="filters"><input type="search" data-pplq value="${esc(ui.ppl.q)}" placeholder="Search name or booking number" aria-label="Search people in the blotter"></div><div data-list="blPeople">${LISTS.blPeople()}</div></section>`;
 }
+document.addEventListener('change',ev=>{const el=ev.target;if(!el.dataset||el.dataset.blauto===undefined)return;
+  S.blAutoSubjects=el.checked;persist();
+  if(el.checked&&B){const n=blAutoSubjects(B.rows);render();toast(n?`${n} subject${n>1?'s':''} created from the blotter`:'Automatic subjects are on')}else toast('Automatic subjects are off')});
 document.addEventListener('input',ev=>{if(ev.target.dataset&&ev.target.dataset.pplq!==undefined){ui.ppl.q=ev.target.value;ui.ppl.limit=100;refreshLists()}});
+
+
+/* ---- quick links, review order, and the find form's context ---- */
+function blQuickLinks(){
+  const un=blLocationGroups().filter(g=>g.zone==='UNMAPPED').length,rev=B.review.length,n=B.rows.length;
+  const link=(to,label,count,ok)=>`<button class="qlink${ok?'':' off'}" data-act="blJump" data-to="${to}">${label}<b>${count}</b></button>`;
+  return `<nav class="quick" aria-label="Jump to a section"><span class="lbl">Jump to</span>${link('bl-entries','Entries',n,true)}${link('bl-locations','Locations not in the rules',un,un>0)}${link('bl-review','Flagged for review',rev,rev>0)}</nav>`;
+}
+const BL_REVIEW_SHORT={CategoryMissing:'No category',TimestampBad:'Time not readable',ShiftMissing:'No shift',DuplicateReportID:'Report number used twice',MultipleUnits:'More than one unit'};
+function blReviewQueue(){
+  const dir=ui.bl.revDir==='desc'?-1:1;
+  return B.rows.filter(e=>e.NeedsReview==='Y').sort((a,b)=>{const x=blReportKey(a.ReportID),y=blReportKey(b.ReportID);return x<y?-dir:x>y?dir:0});
+}
+/* The flagged entry after (step 1) or before (step -1) this one, in the order the list shows. */
+function blReviewNeighbor(id,step){
+  const asc=ui.bl.revDir!=='desc',k=blReportKey(id),q=blReviewQueue().filter(e=>e.ReportID!==id);
+  const after=e=>asc?blReportKey(e.ReportID)>k:blReportKey(e.ReportID)<k;
+  if(step>0){const x=q.find(after);return x?x.ReportID:null}
+  const before=q.filter(e=>!after(e));return before.length?before[before.length-1].ReportID:null;
+}
+function blReviewNext(id){const n=blReviewNeighbor(id,1);if(n)return n;const q=blReviewQueue().filter(e=>e.ReportID!==id);return q.length?q[0].ReportID:null}
+function blRevNavHtml(e){
+  if(e.NeedsReview!=='Y')return '';
+  const q=blReviewQueue(),i=q.findIndex(x=>x.ReportID===e.ReportID),prev=blReviewNeighbor(e.ReportID,-1),next=blReviewNeighbor(e.ReportID,1);
+  const btn=(label,id)=>id?`<button class="btn small" data-act="blRevGo" data-id="${esc(id)}">${label}</button>`:`<button class="btn small" disabled>${label}</button>`;
+  return `<div class="revnav"><span><b>Flagged for review</b> · ${i+1} of ${q.length}</span><span class="rn">${btn('← Previous',prev)}${btn('Next →',next)}</span></div>`;
+}
+function blReviewSection(){
+  if(!B.review.length)return '';
+  const q=blReviewQueue(),asc=ui.bl.revDir!=='desc';
+  return `<section class="sec light" id="bl-review"><h2>Flagged for review (${B.review.length})</h2><p class="sub">These are stored and counted like every other entry. The flag says what looked wrong, so someone can check it against the original. Open one to edit it or mark it reviewed; from there you can move straight to the next one without coming back here.</p>
+  <div class="acts" style="margin:0 0 10px"><button class="btn primary" data-act="blRevStart">Review them one after another</button></div>
+  <div class="scroll"><table class="tbl"><thead><tr><th><button class="thsort on" data-act="blRevSort" title="Sort by report number; click again to reverse">Report number ${asc?'▲':'▼'}</button></th><th>Category</th><th>Subcategory</th><th>Location</th><th>Why flagged</th></tr></thead><tbody>${q.map(e=>`<tr class="row" tabindex="0" data-act="open" data-k="bl" data-id="${esc(e.ReportID)}"><td><span class="idtag">${esc(e.ReportID)}</span></td><td>${esc(e.Category||'Missing')}</td><td>${esc(e.Subcategory||'Missing')}</td><td>${esc(e.Locations||e.LocationRaw||'Missing')}</td><td>${esc((e.QualityFlags||'').split(';').filter(f=>BL_REVIEW_SHORT[f]).map(f=>BL_REVIEW_SHORT[f]).join(', '))}</td></tr>`).join('')}</tbody></table></div></section>`;
+}
+/* What the blotter says about an entry, shown in the contraband find form so the find can be filled in with the context in front of you. */
+function blContextHtml(id){
+  const e=blFind(id);if(!e)return '';
+  const ppl=blPeopleOf(e).map(p=>`${p.name?esc(p.name)+' ':''}#${esc(p.bk)}`).join(', ');
+  return `<div class="ctxbox"><div class="ctxh"><b>From the blotter: ${esc(e.ReportID)}</b> · ${Number.isFinite(e._t)?fmtDT(e.OccurredAt):''}${e.Shift?' · '+esc(e.Shift)+' shift':''} · <button type="button" class="lnk" data-act="cbAddNarr" data-id="${esc(e.ReportID)}">Add this narrative to the notes</button></div>
+  <p><b>Where:</b> ${esc(e.Locations||e.LocationRaw||'Not recorded')}${e.AreasMentioned?' <span class="sub">(narrative also mentions '+esc(e.AreasMentioned.split('; ').join(', '))+')</span>':''}</p>
+  <p><b>Entry:</b> ${esc(e.Category||'')} ${esc(e.Subcategory||'')}</p>
+  ${ppl?`<p><b>People named:</b> ${ppl} <span class="sub">(tick anyone connected to the find under Linked subjects below)</span></p>`:''}
+  ${e.WorkOrders||e.CaseNumbers?`<p>${e.WorkOrders?'<b>Work order:</b> '+esc(e.WorkOrders)+' ':''}${e.CaseNumbers?'<b>Case:</b> '+esc(e.CaseNumbers):''}</p>`:''}
+  <p><b>Summary:</b> ${esc(e.Summary||'None')}</p>${e.ActionsTaken?`<p><b>Actions taken:</b> ${esc(e.ActionsTaken)}</p>`:''}</div>`;
+}
+
+
+/* ---- Overview panel for the Jail blotter ---- */
+function blCoverage(days){
+  const set=new Set(B.rows.map(e=>e.DutyDate||(Number.isFinite(e._t)?blDayKey(e):'')).filter(Boolean));
+  const end=new Date(B.asof);end.setHours(12,0,0,0);let have=0;
+  for(let i=0;i<days;i++){const d=new Date(end.getTime()-i*DAY);if(set.has(`${d.getFullYear()}-${pad(d.getMonth()+1,2)}-${pad(d.getDate(),2)}`))have++}
+  return{have,days};
+}
+function blOverviewPanel(){
+  if(!B||!B.rows.length)return ovPanel('Jail blotter','blotter','Open Jail blotter',`<p class="sub">No blotter entries yet. Import daily Word blotters or monthly Excel workbooks and this panel fills in.</p><div class="acts"><button class="btn primary" data-act="blImport">Import blotter files</button></div>`);
+  const rows=B.rows,i30=rows.filter(e=>e.IsIncident==='Y'&&blIn(e,0,30)).length,i60=rows.filter(e=>e.IsIncident==='Y'&&blIn(e,30,60)).length;
+  const c2=rows.filter(e=>e.EventType==='CODE-TWO'&&blIn(e,0,14)).length,fu=rows.filter(e=>e.UseOfForce==='Y'&&blIn(e,0,14)).length;
+  const pend=rows.filter(e=>e.CandidateFind==='Y'&&e.FindState==='Pending').length,un=blLocationGroups().filter(g=>g.zone==='UNMAPPED').length,rev=B.review.length;
+  const cov=blCoverage(30),miss=cov.days-cov.have,wk=blWeekly(e=>e.IsIncident==='Y'),proj=projectNext(wk.v);
+  const asof=new Date(B.asof).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  const items=[];
+  if(rev)items.push(`<li><button class="lnk" data-act="blGo" data-to="bl-review"><b>${rev}</b> flagged for review</button></li>`);
+  if(un)items.push(`<li><button class="lnk" data-act="blGo" data-to="bl-locations"><b>${un}</b> location${un>1?'s':''} not in the rules</button></li>`);
+  if(pend)items.push(`<li><button class="lnk" data-act="blGo" data-to="bl-entries"><b>${pend}</b> possible contraband find${pend>1?'s':''} waiting</button></li>`);
+  if(miss>0)items.push(`<li>Blotters loaded for <b>${cov.have}</b> of the last ${cov.days} days: <b>${miss}</b> missing. <button class="lnk" data-act="nav" data-r="analysis">See the gaps in Trends</button></li>`);
+  return ovPanel('Jail blotter','blotter','Open Jail blotter',`<div class="ovt">${ovTile(rows.length,'Entries',`through ${asof}`)}${ovTile(i30,'Security incidents, 30 days',ovDelta(i30,i60))}${ovTile(c2,'Code Two, 14 days','Disturbances and fights')}${ovTile(fu,'Use of force, 14 days','Entries that say force was used')}</div>
+   ${items.length?`<ul class="attn">${items.join('')}</ul>`:'<p class="sub">Nothing needs attention: no flagged entries, every location recognised, and every recent day has a blotter.</p>'}
+   <h3>Security incidents per week</h3>${columns(wk.v,wk.labels,'Security incidents per week, last 8 weeks',proj)}${proj!=null?`<p class="sub">Next week, projected: <b>${proj}</b>. Windows count back from ${asof}, the latest entry loaded.</p>`:''}`);
+}
 
 /* ---- amendments ---- */
 function blAmendDlg(pre){
@@ -3514,7 +3803,7 @@ function blImportDlg(){
   openModal(`<h2>Import blotter files</h2><p class="sub">Choose one or more monthly .xlsx workbooks or daily Word blotters (.docx or older .doc), in any mix, from Main Jail or the Annex. They are read and cleaned in this browser tab, then stored in this device's local database. Nothing is uploaded anywhere. Every entry in the file is stored, including PREA entries, voided numbers and entries that need review. Dates of birth are removed from narratives. An entry already stored is skipped; one stored before counts-only handling was retired is upgraded to full detail.</p>
   <div class="fgrid"><label class="fld wide"><span>Blotter files</span><input type="file" id="blfile" accept=".xlsx,.xlsm,.docx,.doc,.pdf" multiple></label>
   <label class="fld wide"><span>Location overrides (optional)</span><textarea id="blmap" rows="3" placeholder="One per line: LOCATION AS WRITTEN,ZONE CODE"></textarea><small>For example WAREHOUSE,SUPPORT. Overrides run before the built-in rules. Your saved mappings (Jail Blotter page, Locations not in the rules) are applied automatically.</small><label class="chk"><input type="checkbox" id="blremember" checked> Remember these for future imports</label></label>
-  <fieldset class="fld wide"><legend>Options</legend><div class="checks"><label class="chk"><input type="checkbox" id="blofficers"> Keep officer names and badges</label></div></fieldset></div>
+  <fieldset class="fld wide"><legend>Options</legend><div class="checks"><label class="chk"><input type="checkbox" id="blofficers"> Keep officer names and badges</label><label class="chk"><input type="checkbox" id="blauto" ${blAutoOn()?'checked':''}> Create a subject for each inmate named as "Inmate J. Doe #1000001"</label></div></fieldset></div>
   <div class="err" id="ferr" role="alert"></div><div class="acts"><button class="btn primary" id="blgo">Read and clean</button><button class="btn" data-act="closeModal">Cancel</button></div>`);
   $('#blgo').onclick=blRun;
 }
@@ -3534,6 +3823,7 @@ async function blRowsFromDocx(f){
 async function blRun(){
   const fl=[...$('#blfile').files];if(!fl.length){$('#ferr').textContent='Choose one or more files first.';return}
   $('#blgo').disabled=true;$('#blgo').textContent='Reading...';
+  if($('#blauto')){S.blAutoSubjects=$('#blauto').checked;persist()}
   try{
     const rows=[],names=[],docxErrors=[],pdfs=[];
     for(const f of fl){
@@ -3624,6 +3914,8 @@ async function blRun(){
     if(dupSkipped>0)parts.push(`${dupSkipped} already stored`);
     const flaggedNew=newClean.filter(r=>r.NeedsReview==='Y').length;
     if(flaggedNew)parts.push(`${flaggedNew} flagged for review`);
+    const madeSubj=blAutoSubjects(B.rows);
+    if(madeSubj)parts.push(`${madeSubj} subject${madeSubj>1?'s':''} created`);
     if(docxErrors.length)parts.push(`could not read ${docxErrors.join(', ')}`);
     toast(parts.join(', '));
     if(pdfs.length)blAmendDlg({ref:pdfs[0],pdfNote:`${pdfs.join(', ')} ${pdfs.length>1?'are scanned images':'is a scanned image'}, so ${pdfs.length>1?'they':'it'} couldn't be read automatically.`});
@@ -3649,6 +3941,17 @@ Object.assign(A,{
     $('#blClrGo').onclick=async()=>{await blClearAll();await blSetMeta('wipeTag',BL_WIPE_TAG);closeModal();blSetEmpty();go('blotter');toast('Blotter entries cleared')};},
   blEdit(d){blEditDlg(d.id)},
   blAmend(){blAmendDlg()},
+  blJump(d){const el=document.getElementById(d.to);if(!el){toast(d.to==='bl-review'?'Nothing is flagged for review.':d.to==='bl-locations'?'Every location written in the stored blotters is recognised.':'That section is not on the page.');return}el.scrollIntoView({behavior:'smooth',block:'start'})},
+  blGo(d){go('blotter');setTimeout(()=>{const el=document.getElementById(d.to);if(el)el.scrollIntoView({block:'start'})},80)},
+  blSortReport(d){const f=ui.f.blotter;f.sort='report';f.dir=d.dir;f.limit=150;render()},
+  blRevSort(){ui.bl.revDir=ui.bl.revDir==='desc'?'asc':'desc';render()},
+  blRevGo(d){ui.stack=[{k:'bl',id:d.id}];renderDrawer()},
+  blRevStart(){const q=blReviewQueue();if(q.length){ui.stack=[{k:'bl',id:q[0].ReportID}];renderDrawer()}},
+  blReviewedNext(d){blMarkReviewed(d.id,true)},
+  blRefFilter(d){closeDrawer();ui.f.blotter=Object.assign(BL_FILTER_DEFAULT(),{[d.k]:d.v});go('blotter');setTimeout(()=>{const el=document.getElementById('bl-entries');if(el)el.scrollIntoView({block:'start'})},80)},
+  blRemoveAuto(){blRemoveAutoDlg()},
+  blMakeAll(){const n=blAutoSubjects(B?B.rows:[],{force:true,all:true});render();toast(n?`${n} subject${n>1?'s':''} created from the blotter`:'Everyone named as an inmate already has a subject')},
+  cbAddNarr(d){const e=blFind(d.id),ta=document.querySelector('#fbody [name=notes]');if(!e||!ta)return;ta.value=(ta.value?ta.value+'\n':'')+`Blotter ${e.ReportID}: ${e.Summary||''}${e.ActionsTaken?' Actions: '+e.ActionsTaken:''}`;toast('Narrative added to the notes')},
   blPplMore(){ui.ppl.limit+=100;refreshLists()},
   blMapLoc(d){blMapLocDlg(d.key)},
   blShowNoLoc(){ui.f.blotter=Object.assign(BL_FILTER_DEFAULT(),{inc:['noloc']});render();const el=document.querySelector('[data-list=blotterBar]');if(el)el.scrollIntoView({block:'start'})},
@@ -3657,7 +3960,7 @@ Object.assign(A,{
   blReviewed(d){blMarkReviewed(d.id)},
   bllayer(d){ui.bl.layer=d.v;render()},
   blzone(d){ui.f.blotter.zone=ui.f.blotter.zone===d.id?'':d.id;render()},
-  blConfirm(d){const e=blFind(d.id);if(!e)return;closeDrawer();formCB(null,{date:e.OccurredAt.slice(0,16),type:e.CandidateType||'Other',blotter:e.ReportID})},
+  blConfirm(d){const e=blFind(d.id);if(!e)return;closeDrawer();formCB(null,Object.assign({date:e.OccurredAt.slice(0,16),type:e.CandidateType||'Other',blotter:e.ReportID},(()=>{const z=blZonesOf(e).find(x=>ZONES.some(q=>q.id===x));return z?{zone:z}:{}})()))},
   async blReject(d){await blMark(d.id,'Rejected');renderDrawer();render();toast('Marked as not a find')},
   async blFlagToggle(d){await blFlag(d.id);renderDrawer();render();toast('Follow-up flag updated')},
   blWatch(d){closeDrawer();const n=B.rows.filter(e=>blPeopleOf(e).some(p=>p.bk===d.bk));const ts=n.map(e=>e._t).filter(Number.isFinite).sort();
@@ -3950,7 +4253,7 @@ Object.assign(A,{
 
 /* ================= boot ================= */
 try{const t=localStorage.getItem('dims.theme');if(t)document.documentElement.dataset.theme=t}catch(e){}
-blInit().then(render);
+blInit().then(()=>{render();if(BL_BOOT_NOTE){toast(BL_BOOT_NOTE);BL_BOOT_NOTE=''}});
 try{
   if(window.claude&&typeof window.claude.use==='function'){
     window.claude.use('downloads').then(d=>{DL=d}).catch(()=>{});

@@ -12,7 +12,7 @@ A working prototype of a jail intelligence tool for the Bexar County Sheriff's O
 ## Where data is kept
 
 - Everything you enter or import is stored **only in the browser you're using, on that computer**. Nothing is uploaded, and nothing is shared with anyone else who opens the same page.
-- The intel reports, subjects, sources and contraband finds that come with the app are **fictional sample records**. The Jail Blotter starts empty.
+- The intel reports, subjects, sources and contraband finds that come with the app are **fictional sample records**. The Jail Blotter starts empty. To start with an empty app, open **Audit and data → Remove test data**; you can remove just the sample records (keeping anything you added) or everything.
 - **Before importing real blotters or entering real information into a copy hosted on GitHub Pages**, check with your agency. The data still stays in your browser, but the page itself is on a public service. For real data, open the downloaded file locally, or use the SharePoint build described in the build guide.
 
 ## Publish it with GitHub Pages
