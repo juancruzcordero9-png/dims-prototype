@@ -15,6 +15,10 @@ A working prototype of a jail intelligence tool for the Bexar County Sheriff's O
 - The intel reports, subjects, sources and contraband finds that come with the app are **fictional sample records**. The Jail Blotter starts empty. To start with an empty app, open **Audit and data → Remove test data**; you can remove just the sample records (keeping anything you added) or everything.
 - **Before importing real blotters or entering real information into a copy hosted on GitHub Pages**, check with your agency. The data still stays in your browser, but the page itself is on a public service. For real data, open the downloaded file locally, or use the SharePoint build described in the build guide.
 
+## Roles in the prototype
+
+The sidebar has a role switch (Intel analyst, Intel supervisor, Jail staff). Intel reports and Sources are for intel personnel only, so the Jail staff view hides them and everything that would expose them. The switch shows what each role would see; it does not protect anything, because all the data is in the browser. In SharePoint the same rule is list permissions.
+
 ## Publish it with GitHub Pages
 
 1. Create a repository and upload `index.html`, `README.md`, `THIRD_PARTY_NOTICES.md` and `.nojekyll`.
