@@ -347,6 +347,17 @@ ul.people li{margin:2px 0}
 .reqlist li.ok{color:var(--green-ink)}
 .subjpick input{min-width:260px}
 .chip .x{border:0;background:none;cursor:pointer;font:inherit;color:inherit;padding:0 0 0 4px}
+.misscard{border:1px solid var(--line);border-left:4px solid var(--steel);background:var(--surface);border-radius:4px;padding:10px 14px;margin:0 0 14px}
+.misscard h3{margin:0 0 4px}
+.tkn{display:flex;gap:14px;justify-content:space-between;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}
+.tkn .tt{flex:1;min-width:0}
+.tkn .ta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;min-width:210px}
+.tkn.done{opacity:.72}
+.disc summary{cursor:pointer;font-size:13px;color:var(--ink-2)}
+.disc p{font-size:13px;margin:6px 0}
+.ctxbox.disc{max-height:none}
+.notifbtn{width:100%;text-align:left;margin-bottom:8px}
+.rail-foot .ver{display:block;margin-top:8px;font-size:11px;color:var(--rail-dim)}
 </style>
 <script>/* SheetJS 0.18.5 (Apache-2.0) -- embedded so the app works offline */
 /*! xlsx.js (C) 2013-present SheetJS -- http://sheetjs.com */
@@ -811,7 +822,7 @@ if(window.addEventListener)window.addEventListener('load',function(){setTimeout(
 <div class="shell">
   <aside class="rail" id="rail"></aside>
   <main id="main" tabindex="-1"><div id="dims-start" style="max-width:640px;margin:48px auto;padding:20px 24px;border:1px solid #c98a0b;background:#fbf0d2;color:#3b2a06;border-radius:6px;font:15px/1.5 Arial,sans-serif">
-    <h1 style="font:600 24px Arial,sans-serif;margin:0 0 8px">Detention Intelligence Management System</h1>
+    <h1 style="font:600 24px Arial,sans-serif;margin:0 0 8px">Detention Intelligence Management System</h1><p style="margin:0 0 8px;font-size:13px">Version 1.28, built Oct 3, 2026</p>
     <p id="dims-start-msg" style="margin:0 0 8px">Starting&hellip;</p>
     <p style="margin:0">If this message stays, the viewer you opened this file in is not running the app. Open the file in a web browser instead &mdash; Chrome, Edge, Firefox or Safari. On a phone or tablet, choose <b>Open in</b> or <b>Share</b>, then your browser, rather than the file preview.</p>
     <noscript><p style="margin:8px 0 0"><b>JavaScript is turned off in this browser.</b> The app needs it to run.</p></noscript>
@@ -829,6 +840,8 @@ const $=(s,el=document)=>el.querySelector(s);
 const $$=(s,el=document)=>Array.from(el.querySelectorAll(s));
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const DAY=864e5,HOUR=36e5,NOW=Date.now();
+/* Shown in the sidebar and on Audit and data, so anyone can tell which copy of the app they have. */
+const APP_VERSION='1.28',APP_BUILT='Oct 3, 2026';
 const FACILITY='Bexar County Adult Detention Center (Main Jail / South Tower)';
 function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 const pad=(n,l)=>String(n).padStart(l,'0');
@@ -1653,7 +1666,10 @@ const SEVS=['Low','Moderate','High','Critical'];
 const TASK_TYPES=['Targeted search','Mail review','Camera review','Debrief','Observation','Analysis','Other'];
 
 /* ================= seed data (fictional) ================= */
-function seedData(){
+/* Every record the app ships with is marked sample:true, so "Remove sample data" can find all of it, even after edits. */
+const SAMPLE_LISTS=['reports','contraband','subjects','sources','reqs','tasks','vulns'];
+function seedData(){const s=seedDataRaw();SAMPLE_LISTS.concat(['audit']).forEach(k=>(s[k]||[]).forEach(r=>{r.sample=true}));return s}
+function seedDataRaw(){
   const R=rng(20260920);
   const pick=a=>a[Math.floor(R()*a.length)];
   const rnd=(a,b)=>a+R()*(b-a);
@@ -1753,22 +1769,36 @@ function seedData(){
 const KEY='dims.v1';
 function loadState(){try{const s=localStorage.getItem(KEY);if(s){const o=JSON.parse(s);if(o&&o.v===1&&Array.isArray(o.reports)&&Array.isArray(o.contraband))return o}}catch(e){}return null}
 let SUBJ_IDX=null,SUBJ_IDX_S=null; // booking number -> subject, rebuilt after any save
-function persist(){SUBJ_IDX=null;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function persist(){SUBJ_IDX=null;ANCHOR=null;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 let S=loadState()||seedData();
 function migrateState(s){
   (s.contraband||[]).forEach(c=>{if(!Array.isArray(c.items)||!c.items.length)c.items=[{type:c.type,qty:c.qty===''||c.qty==null?1:c.qty,unit:c.unit||UNITS[c.type]||'item',desc:''}];if(c.cell===undefined)c.cell=''});
   (s.reports||[]).forEach(r=>{if(r.cell===undefined)r.cell=''});
   (s.vulns||[]).forEach(v=>{if(v.cell===undefined)v.cell=''});
+  // Data saved before sample records were marked: mark the ones that still match the sample set (same id and title).
+  if(!s.sampleTagged){
+    const seed=seedDataRaw(),KEY={reports:'title',contraband:'type',subjects:'name',sources:'codename',reqs:'title',tasks:'title',vulns:'title'};
+    Object.keys(KEY).forEach(k=>{const m=new Map((seed[k]||[]).map(x=>[x.id,x[KEY[k]]]));(s[k]||[]).forEach(r=>{if(r.sample===undefined&&m.has(r.id)&&m.get(r.id)===r[KEY[k]])r.sample=true})});
+    (s.audit||[]).forEach(a=>{if(a.sample===undefined&&a.who==='System'&&a.action==='Sample data loaded')a.sample=true});
+    s.sampleTagged=true;
+  }
+  s.taskings=s.taskings||[];s.team=s.team||['Analyst (demo)','Analyst 2 (demo)','Supervisor (demo)'];s.notifDone=s.notifDone||{};
   return s;
 }
 migrateState(S);
 /* Roles (prototype). Intel reports and Sources are for intel personnel only. This shows what each role would see; it
    can't secure anything, because all the data sits in this browser. In SharePoint the same rule is list permissions. */
-const ROLES=[{id:'analyst',name:'Intel analyst',intel:true},{id:'supervisor',name:'Intel supervisor',intel:true},{id:'staff',name:'Jail staff (not intel personnel)',intel:false}];
+const ROLES=[{id:'analyst',name:'Intel analyst',intel:true,user:'Analyst (demo)'},{id:'supervisor',name:'Intel supervisor',intel:true,user:'Supervisor (demo)'},{id:'staff',name:'Jail staff (not intel personnel)',intel:false,user:'Jail staff (demo)'}];
 let ROLE=(()=>{try{return localStorage.getItem('dims.role')||'analyst'}catch(e){return 'analyst'}})();
 if(!ROLES.some(r=>r.id===ROLE))ROLE='analyst';
 const roleInfo=()=>ROLES.find(r=>r.id===ROLE);
 const canIntel=()=>roleInfo().intel;
+const canSupervise=()=>ROLE==='supervisor';
+const ME=()=>roleInfo().user;
+/* Shown on every intel report (screen and PDF) and acknowledged when one is filed. A supervisor can edit the wording on the Audit
+   and data page; counsel should approve the final text. */
+const DISCLAIMER_DEFAULT='LAW ENFORCEMENT SENSITIVE. This report is for authorized detention and law enforcement personnel with a need to know. It holds unverified information and analyst assessment. It is not evidence, not a finding of fact, and not a determination of the guilt or innocence of any person. Do not copy, forward or discuss it outside the Intelligence Unit without a supervisor\u2019s approval. Source identities are protected and are never to be disclosed.';
+const disclaimerText=()=>(S.disclaimer&&S.disclaimer.trim())||DISCLAIMER_DEFAULT;
 const reps=()=>canIntel()?S.reports:[];
 const srcs=()=>canIntel()?S.sources:[];
 syncZones();
@@ -1776,10 +1806,25 @@ function log(action,ref){S.audit.unshift({t:new Date().toISOString(),who:roleInf
 
 /* ================= helpers ================= */
 const byId=(arr,id)=>arr.find(x=>x.id===id);
-const age=iso=>(NOW-Date.parse(iso))/DAY;
+/* One clock for every analytic: the newest record loaded (blotter entry, find or report), or today when the data is
+   current. Without this, older data (blotters imported from earlier months, say) fell outside every "last 30 days"
+   window on the contraband and facility side, and those analytics stayed empty. */
+let ANCHOR=null;
+function dataAnchor(){
+  let m=-Infinity;
+  if(typeof B!=='undefined'&&B&&B.rows&&B.rows.length&&Number.isFinite(B.asof))m=B.asof;
+  (S.contraband||[]).forEach(c=>{const t=Date.parse(c.date);if(t>m)m=t});
+  (S.reports||[]).forEach(r=>{const t=Date.parse(r.date);if(t>m)m=t});
+  if(!Number.isFinite(m)||m>NOW||NOW-m<=3*DAY)return NOW;
+  return m;
+}
+const anchorNow=()=>ANCHOR==null?(ANCHOR=dataAnchor()):ANCHOR;
+const anchorNote=()=>{const a=anchorNow();return a<NOW-3*DAY?`<div class="note">Figures count back from <b>${new Date(a).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</b>, the newest record in this copy. Nothing newer is loaded, so "last 30 days" means the 30 days up to then.</div>`:''};
+const age=iso=>(anchorNow()-Date.parse(iso))/DAY;
+const ageNow=iso=>(NOW-Date.parse(iso))/DAY;
 const fmtD=iso=>iso?new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'None';
 const fmtDT=iso=>new Date(iso).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
-const rel=iso=>{const d=age(iso);return d<1?Math.max(1,Math.round(d*24))+'h ago':Math.round(d)+'d ago'};
+const rel=iso=>{const d=ageNow(iso);return d<1?Math.max(1,Math.round(d*24))+'h ago':Math.round(d)+'d ago'};
 const overdue=iso=>iso&&Date.parse(iso)<NOW;
 const dueTxt=iso=>{if(!iso)return 'No date';const d=Math.round((Date.parse(iso)-NOW)/DAY);return d<0?`${-d}d overdue`:d===0?'Due today':`Due in ${d}d`};
 const toLocal=iso=>{const d=new Date(iso||Date.now());return `${d.getFullYear()}-${pad(d.getMonth()+1,2)}-${pad(d.getDate(),2)}T${pad(d.getHours(),2)}:${pad(d.getMinutes(),2)}`};
@@ -1799,7 +1844,7 @@ const subjectCard=id=>{
   return `<button class="link-card" data-act="open" data-k="subj" data-id="${s.id}"><img class="link-photo" src="${s.photo||PHOTO_PLACEHOLDER}" alt=""><span class="t"><b>${esc(s.name)}</b><small>${esc(s.id)}${s.ref?', '+esc(s.ref):''}, ${esc(zname(s.zone))}</small></span>${watchChip(s.watch)}</button>`;
 };
 const grade=(r,c)=>`<span class="grade" title="${esc(REL[r])}. ${esc(CRED[c])}">${esc(r)}${esc(c)}</span>`;
-const srcLabel=id=>{if(id==='DIRECT')return 'Direct observation';const s=byId(srcs(),id);return s?`${s.id} "${s.codename}"`:id};
+const srcLabel=id=>{if(!id)return 'Not recorded';if(id==='DIRECT')return 'Direct observation';const s=byId(srcs(),id);return s?`${s.id} "${s.codename}"`:id};
 const inRange=(iso,a,b)=>{const g=age(iso);return g>=a&&g<b};
 const countBy=(list,fn)=>{const m=new Map();list.forEach(x=>{const k=fn(x);m.set(k,(m.get(k)||0)+1)});return [...m.entries()].map(([k,v])=>({k,v})).sort((a,b)=>b.v-a.v)};
 const topOf=(list,fn)=>{const c=countBy(list,fn);return c.length?c[0].k:'None'};
@@ -1808,11 +1853,18 @@ const bandOf=r=>r>=65?['High','c-red']:r>=45?['Elevated','c-amber']:r>=25?['Guar
 /* ================= analytics ================= */
 function zoneStats(){
   const st={};
-  ZONES.forEach(z=>st[z.id]={z,cb30:0,cb90:0,sev:0,intel:0,vuln:0,vulnW:0,risk:0});
+  ZONES.forEach(z=>st[z.id]={z,cb30:0,cb90:0,sev:0,intel:0,vuln:0,vulnW:0,bn30:0,bi30:0,bf30:0,bc30:0,bw:0,risk:0});
   S.contraband.forEach(c=>{const s=st[c.zone];if(!s)return;const a=age(c.date);if(a<=90){s.cb90++;s.sev+=itemSev(c)*(a<=30?1.5:.7)}if(a<=30)s.cb30++});
   reps().forEach(r=>{const s=st[r.zone];if(s&&['New','Under review','Corroborated'].includes(r.status))s.intel+=r.priority==='Urgent'?3:r.priority==='Elevated'?2:1});
   S.vulns.forEach(v=>{const s=st[v.zone];if(s&&v.status!=='Closed'){s.vuln++;s.vulnW+={Low:2,Moderate:4,High:7,Critical:10}[v.severity]||2}});
-  Object.values(st).forEach(s=>{s.risk=Math.min(100,Math.round(s.sev*1.1+s.intel*3+s.vulnW*1.6))});
+  // The Jail blotter counts too: its last 30 days (counted back from its newest entry), once per area an entry names.
+  // A security incident is worth 1, one that used force 1.5 more, and an entry about contraband 2.
+  if(typeof B!=='undefined'&&B&&B.rows&&typeof blIn==='function'&&typeof blZonesOf==='function')B.rows.forEach(e=>{
+    if(!blIn(e,0,30))return;
+    const inc=e.IsIncident==='Y',force=e.UseOfForce==='Y',cb=e.EventType==='CONTRABAND-FOUND'||e.CandidateFind==='Y';
+    blZonesOf(e).forEach(z=>{const s=st[z];if(!s)return;s.bn30++;if(inc)s.bi30++;if(force)s.bf30++;if(cb)s.bc30++;s.bw+=(inc?1:0)+(force?1.5:0)+(cb?2:0)});
+  });
+  Object.values(st).forEach(s=>{s.risk=Math.min(100,Math.round(s.sev*1.1+s.intel*3+s.vulnW*1.6+Math.min(40,s.bw)*1.2))});
   return st;
 }
 function patterns(){
@@ -1857,7 +1909,7 @@ const ui={route:'overview',layer:'risk',zone:null,range:'90',
   net:{paths:true,zones:false,blotter:false,min:1,sel:null,pos:{},sig:'',f:netFDefault(),gen:null},stack:[]};
 let SAMPLE=null,DL=null,GRAPH=null;
 
-const NAV=[['overview','Overview','grid'],['reports','Intel reports','file'],['contraband','Contraband','box'],['facility','Facility','map'],['blotter','Jail blotter','log'],['analysis','Trends and patterns','trend'],['network','Link analysis','net'],['subjects','Subjects','users'],['sources','Sources','shield'],['collection','Collection plan','target'],['audit','Audit and data','list']];
+const NAV=[['overview','Overview','grid'],['reports','Intel reports','file'],['contraband','Contraband','box'],['facility','Facility','map'],['blotter','Jail blotter','log'],['analysis','Trends and patterns','trend'],['network','Link analysis','net'],['subjects','Subjects','users'],['sources','Sources','shield'],['collection','Collection plan','target'],['tasking','Tasking','task'],['audit','Audit and data','list']];
 const ICONS={
  grid:'<rect x="2" y="2" width="5" height="5"/><rect x="9" y="2" width="5" height="5"/><rect x="2" y="9" width="5" height="5"/><rect x="9" y="9" width="5" height="5"/>',
  file:'<path d="M4 1.5h5.5L13 5v9.5H4z"/><path d="M9 1.5V5h4"/>',
@@ -1868,6 +1920,7 @@ const ICONS={
  shield:'<path d="M8 1.5l5.5 2v4.5c0 3-2.3 5-5.5 6.5C4.8 13 2.5 11 2.5 8V3.5z"/>',
  target:'<circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="3"/><circle cx="8" cy="8" r=".8"/>',
  list:'<path d="M3 3.5h10M3 8h10M3 12.5h6"/>',
+ task:'<path d="M2.5 4.2l1.3 1.3L6 3.2M2.5 9.2l1.3 1.3L6 8.2M8.5 4.5h5M8.5 9.5h5"/>',
  trend:'<path d="M2 12l4-4 3 3 5-6"/><path d="M10 5h4v4"/>',
  log:'<rect x="3" y="1.5" width="10" height="13" rx="1"/><path d="M5.5 5h5M5.5 8h5M5.5 11h3"/>'
 };
@@ -1891,7 +1944,7 @@ function columns(vals,labels,label,proj){
   if(proj!=null){const bh=(h-p.t-p.b)*proj/max,x=p.l+vals.length*bw+3;s+=`<rect x="${x}" y="${h-p.b-bh}" width="${bw-6}" height="${bh}" fill="none" stroke="var(--steel)" stroke-width="1.5" stroke-dasharray="3 2"/><text class="ax" x="${x+(bw-6)/2}" y="${h-7}" text-anchor="middle">Next</text><title>Projected next week: ${proj}, from a straight-line trend over the weeks shown. Not a promise.</title>`}
   return s+'</svg>';
 }
-function weekly(list,n=12){const v=Array(n).fill(0);list.forEach(c=>{const w=Math.floor(age(c.date)/7);if(w>=0&&w<n)v[n-1-w]++});return{v,labels:v.map((_,i)=>new Date(NOW-(n-1-i)*7*DAY).toLocaleDateString('en-US',{month:'short',day:'numeric'}))}}
+function weekly(list,n=12){const v=Array(n).fill(0);list.forEach(c=>{const w=Math.floor(age(c.date)/7);if(w>=0&&w<n)v[n-1-w]++});return{v,labels:v.map((_,i)=>new Date(anchorNow()-(n-1-i)*7*DAY).toLocaleDateString('en-US',{month:'short',day:'numeric'}))}}
 function dowHeat(list){
   const g=Array.from({length:7},()=>Array(6).fill(0));
   list.forEach(c=>{const d=new Date(c.date);g[(d.getDay()+6)%7][Math.floor(d.getHours()/4)]++});
@@ -1902,8 +1955,8 @@ function dowHeat(list){
 }
 
 /* ================= facility plan ================= */
-const LAYERS=[['risk','Composite risk'],['contraband','Finds, 30 days'],['intel','Open reports'],['vuln','Vulnerabilities']];
-const LAYER_NOTE={risk:'Weighted from recent finds, open reports and open vulnerabilities.',contraband:'Contraband finds in the last 30 days. Dots mark individual finds.',intel:'Open reports weighted by priority.',vuln:'Open vulnerabilities weighted by severity.'};
+const LAYERS=[['risk','Composite risk'],['blotter','Blotter incidents'],['contraband','Finds, 30 days'],['intel','Open reports'],['vuln','Vulnerabilities']];
+const LAYER_NOTE={risk:'Weighted from recent finds, open reports, open vulnerabilities and the Jail blotter.',blotter:'Security incidents in the Jail blotter over its latest 30 days.',contraband:'Contraband finds in the last 30 days. Dots mark individual finds.',intel:'Open reports weighted by priority.',vuln:'Open vulnerabilities weighted by severity.'};
 function hash(str){let h=0;for(let i=0;i<str.length;i++)h=(h*31+str.charCodeAt(i))>>>0;return h}
 function planFacilityBoxes(){
   const byFac={};ZONES.forEach(z=>{const k=z.mapFac||z.fac;(byFac[k]=byFac[k]||[]).push(z)});
@@ -1915,7 +1968,7 @@ function planFacilityBoxes(){
 }
 function planSvg(layer,selected){
   const st=zoneStats();const vals={};
-  ZONES.forEach(z=>{const s=st[z.id];vals[z.id]=layer==='risk'?s.risk:layer==='contraband'?s.cb30:layer==='intel'?s.intel:s.vulnW});
+  ZONES.forEach(z=>{const s=st[z.id];vals[z.id]=layer==='risk'?s.risk:layer==='blotter'?s.bi30:layer==='contraband'?s.cb30:layer==='intel'?s.intel:s.vulnW});
   const max=Math.max(layer==='risk'?60:3,...Object.values(vals));
   const boxes=planFacilityBoxes();
   const x0=Math.min(...boxes.map(b=>b.x),...ZONES.map(z=>z.x))-6,y0=Math.min(...boxes.map(b=>b.y),...ZONES.map(z=>z.y))-6;
@@ -2062,7 +2115,7 @@ function ovFacility(){
     const items=Object.entries(m).sort((a,b)=>b[1]-a[1]).map(([k,v])=>({k,v}));
     blot=`<h3>Blotter incidents by facility, 30 days</h3>${hbars(items)}`;
   }
-  return ovPanel('Facility','facility','Open Facility',`<div class="ovt">${ovTile(ZONES.length,'Areas tracked',facs.length+' facilit'+(facs.length===1?'y':'ies'))}${ovTile(openV.length,'Open vulnerabilities',hi.length+' high or critical')}${ovTile(top.length?top[0].risk:0,'Highest area risk',top.length?esc(top[0].z.name):'No risk recorded')}${ovTile(st.filter(s=>s.risk>0).length,'Areas with any risk','Finds, reports and vulnerabilities')}</div>
+  return ovPanel('Facility','facility','Open Facility',`<div class="ovt">${ovTile(ZONES.length,'Areas tracked',facs.length+' facilit'+(facs.length===1?'y':'ies'))}${ovTile(openV.length,'Open vulnerabilities',hi.length+' high or critical')}${ovTile(top.length?top[0].risk:0,'Highest area risk',top.length?esc(top[0].z.name):'No risk recorded')}${ovTile(st.filter(s=>s.risk>0).length,'Areas with any risk','Finds, reports, vulnerabilities and the blotter')}</div>
    <h3>Highest-risk areas</h3>${top.length?top.map(s=>`<button class="qrow" data-act="zone" data-id="${s.z.id}"><span class="t"><b>${esc(s.z.name)}</b><small>${s.cb30} find${s.cb30===1?'':'s'} in 30 days, ${s.vuln} open vulnerabilit${s.vuln===1?'y':'ies'}</small></span><span class="num">${s.risk}</span></button>`).join(''):'<p class="sub">No area has any recorded risk yet.</p>'}
    <h3>Open vulnerabilities by severity</h3>${hbars(bySev)}${blot}`);
 }
@@ -2086,7 +2139,7 @@ function ovIntel(){
   const openT=S.tasks.filter(t=>t.status!=='Done'),odT=openT.filter(t=>overdue(t.due)),orv=S.subjects.filter(s=>s.watch!=='None'&&overdue(s.review));
   return ovPanel('Intel reports','reports','Open Intel reports',`<div class="ovt">${ovTile(openR.length,'Awaiting review',urg.length+' urgent and still live')}${ovTile(new30,'Filed, 30 days',reps().length+' in total')}${ovTile(oldest?Math.max(0,Math.round(age(oldest.date)))+' d':'None','Oldest waiting',oldest?esc(oldest.id):'Nothing waiting')}${ovTile(S.subjects.filter(s=>s.watch!=='None').length,'On a watch list',orv.length+' review'+(orv.length===1?'':'s')+' overdue')}</div>
    <h3>Reports by status</h3>${hbars(byStatus)}
-   <ul class="attn"><li>Collection tasks overdue: <b>${odT.length}</b> of ${openT.length} open <button class="lnk" data-act="nav" data-r="collection">Open</button></li><li>Watch-list reviews overdue: <b>${orv.length}</b> <button class="lnk" data-act="nav" data-r="subjects">Open</button></li></ul>`);
+   <ul class="attn"><li>Collection tasks overdue: <b>${odT.length}</b> of ${openT.length} open <button class="lnk" data-act="nav" data-r="collection">Open</button></li><li>Watch-list reviews overdue: <b>${orv.length}</b> <button class="lnk" data-act="nav" data-r="subjects">Open</button></li><li>Taskings assigned to you: <b>${S.taskings.filter(x=>x.assignee===ME()&&(x.status==='Open'||x.status==='Accepted')).length}</b>, <b>${S.taskings.filter(x=>x.assignee===ME()&&(x.status==='Open'||x.status==='Accepted')&&overdue(x.due)).length}</b> overdue <button class="lnk" data-act="nav" data-r="tasking">Open</button></li></ul>`);
 }
 PAGES.overview=function(){
   const c30=S.contraband.filter(c=>age(c.date)<=30).length,c60=S.contraband.filter(c=>inRange(c.date,30,60)).length;
@@ -2102,7 +2155,8 @@ PAGES.overview=function(){
   const bi30=hasB?B.rows.filter(e=>e.IsIncident==='Y'&&blIn(e,0,30)).length:0,bi60=hasB?B.rows.filter(e=>e.IsIncident==='Y'&&blIn(e,30,60)).length:0;
   const unmapped=hasB?blLocationGroups().filter(g=>g.zone==='UNMAPPED').length:0;
   const flagged=hasB?blReviewQueue().slice(0,5):[];
-  return head('Overview',`${FACILITY}, as of ${new Date(NOW).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}`,`<button class="btn" data-act="newCB">Log contraband find</button>${canIntel()?'<button class="btn primary" data-act="newReport">New intel report</button>':''}`)
+  return head('Overview',`${FACILITY}, as of ${new Date(anchorNow()).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}`,`<button class="btn" data-act="newCB">Log contraband find</button>${canIntel()?'<button class="btn primary" data-act="newReport">New intel report</button>':''}`)
+  +sampleNotice()+anchorNote()
   +`<div class="strip s6">
    <div class="st"><div class="l">Blotter incidents, 30 days</div><div class="v">${hasB?bi30:'—'}</div><div class="d">${hasB?ovDelta(bi30,bi60):'No blotter loaded'}</div></div>
    <div class="st"><div class="l">Contraband finds, 30 days</div><div class="v">${c30}</div><div class="d">${ovDelta(c30,c60)}</div></div>
@@ -2128,6 +2182,7 @@ LISTS.reports=function(){
 PAGES.reports=function(){
   const f=ui.f.reports;
   return head('Intel reports','Every report carries a source reliability grade (A to F) and an information credibility grade (1 to 6), so you can weigh it before acting on it.',`<button class="btn primary" data-act="newReport">New report</button>`)
+  +sampleNotice('reports')
   +`<div class="filters"><input type="search" placeholder="Search reports" aria-label="Search reports" value="${esc(f.q)}" data-f="reports.q">${selF('reports.status','All statuses',STATUSES,f.status)}${selF('reports.cat','All categories',CATS,f.cat)}${selF('reports.prio','All priorities',PRIOS,f.prio)}</div><div data-list="reports">${LISTS.reports()}</div>`;
 };
 
@@ -2139,6 +2194,16 @@ LISTS.contraband=function(){
   if(!rows.length)return '<div class="empty">No finds match these filters in this window.</div>';
   return `<div class="scroll"><table class="tbl"><thead><tr><th>Find</th><th>When</th><th>Location</th><th>Pathway</th><th>Discovered by</th><th>Links</th></tr></thead><tbody>${rows.map(c=>`<tr class="row" tabindex="0" data-act="open" data-k="cb" data-id="${c.id}"><td><span class="idtag">${c.id}</span><br><b>${esc(itemsShort(c))}</b><small>${esc(itemsLabel(c))}</small></td><td>${fmtDT(c.date)}</td><td>${esc(zname(c.zone))}${c.cell?`<small>${esc(c.cell)}</small>`:''}</td><td>${esc(c.method)}</td><td>${esc(c.found)}</td><td>${c.subjects.length?`${c.subjects.length} subject${c.subjects.length>1?'s':''}`:'None'}${c.report?`<small>${c.report}</small>`:''}${c.blotter?`<small>Blotter ${esc(c.blotter)}</small>`:''}</td></tr>`).join('')}</tbody></table></div>`;
 };
+/* Blotter entries that read like a contraband find, waiting for someone to confirm or reject them. Confirmed ones become finds
+   and count in the contraband figures; until then they only appear here and on the Jail blotter page. */
+function blFindsQueueHtml(){
+  if(typeof B==='undefined'||!B||!B.rows||!B.rows.length)return '';
+  const pend=B.rows.filter(e=>e.CandidateFind==='Y'&&e.FindState==='Pending').sort((a,b)=>b._t-a._t),done=B.rows.filter(e=>e.CandidateFind==='Y'&&e.FindState==='Confirmed').length;
+  if(!pend.length)return `<section class="sec light"><h2>From the Jail blotter</h2><p class="sub">No possible finds are waiting. ${done} blotter entr${done===1?'y has':'ies have'} been confirmed as finds.</p></section>`;
+  return `<section class="sec light"><h2>From the Jail blotter: ${pend.length} possible find${pend.length===1?'':'s'} waiting</h2><p class="sub">These blotter entries read like contraband finds but aren't counted in the figures below until you confirm them. Read one first if you need the context.</p>
+  ${pend.slice(0,8).map(e=>`<div class="qrow" style="cursor:default"><span class="t"><b>${esc(e.CandidateType||'Other')}, ${esc(e.Locations||e.LocationRaw||'No location')}</b><small>${esc(e.ReportID)}, ${fmtDT(e.OccurredAt)}</small></span><button class="btn small" data-act="open" data-k="bl" data-id="${esc(e.ReportID)}">Read</button><button class="btn small" data-act="blConfirm" data-id="${esc(e.ReportID)}">Confirm</button><button class="btn small" data-act="blReject" data-id="${esc(e.ReportID)}">Reject</button></div>`).join('')}
+  ${pend.length>8?`<button class="lnk" data-act="blGo" data-to="bl-entries">See all ${pend.length} on the Jail blotter page</button>`:''}</section>`;
+}
 PAGES.contraband=function(){
   const W=cbWin(),f=ui.f.contraband;
   const wk=weekly(S.contraband);
@@ -2148,6 +2213,8 @@ PAGES.contraband=function(){
   const rangeTabs=[['30','30 days'],['90','90 days'],['all','All time']].map(r=>`<button class="tab ${ui.range===r[0]?'on':''}" data-act="range" data-v="${r[0]}">${r[1]}</button>`).join('');
   const pats=patterns().filter(p=>p.area==='contraband');
   return head('Contraband intelligence','Where contraband is found, how it gets in, and when it is discovered. Use it to point searches and close entry routes.',`<button class="btn primary" data-act="newCB">Log contraband find</button>`)
+  +sampleNotice('contraband')+anchorNote()
+  +blFindsQueueHtml()
   +`<div class="tabs">${rangeTabs}</div>`
   +(pats.length?`<section class="sec light"><h2>Patterns worth acting on</h2><div class="duo">${pats.map(patHtml).join('')}</div></section>`:'')
   +`<div class="duo"><section class="sec"><h2>Finds per week</h2>${columns(wk.v,wk.labels,'Contraband finds per week, last 12 weeks',wkProj)}${wkProj!=null?`<p class="sub">Next week, projected from a 12-week straight-line trend: <b>${wkProj}</b>.</p>`:''}</section>
@@ -2160,8 +2227,8 @@ PAGES.contraband=function(){
 /* ---- facility ---- */
 function blZoneBlock(z){
   if(typeof B==='undefined'||!B||!B.rows||!B.rows.length)return '<h3>Jail blotter, 30 days</h3><p class="sub">No blotter loaded.</p>';
-  const es=B.rows.filter(e=>blZonesOf(e).includes(z.id)&&blIn(e,0,30)),inc=es.filter(e=>e.IsIncident==='Y').length;
-  return `<h3>Jail blotter, 30 days</h3><p class="sub"><b>${es.length}</b> entr${es.length===1?'y':'ies'} in this area, <b>${inc}</b> security incident${inc===1?'':'s'}.</p>${es.length?`<button class="lnk" data-act="blZoneList" data-id="${esc(z.id)}">See these entries in the blotter</button>`:''}`;
+  const s=zoneStats()[z.id];
+  return `<h3>Jail blotter, 30 days</h3><div class="ovt"><div><b>${s.bn30}</b><span>Entries</span></div><div><b>${s.bi30}</b><span>Security incidents</span></div><div><b>${s.bf30}</b><span>Use of force</span></div><div><b>${s.bc30}</b><span>About contraband</span></div></div>${s.bn30?`<button class="lnk" data-act="blZoneList" data-id="${esc(z.id)}">See these entries in the blotter</button>`:''}`;
 }
 function zonePanel(){
   const z=zn(ui.zone);
@@ -2171,6 +2238,7 @@ function zonePanel(){
   const zreps=reps().filter(r=>r.zone===z.id&&['New','Under review','Corroborated'].includes(r.status));
   const vs=S.vulns.filter(v=>v.zone===z.id&&v.status!=='Closed');
   return `<div class="dh"><h2>${esc(z.name)}</h2>${chip('Risk '+s.risk+', '+bl,bc)}</div><p class="sub">${esc(z.type)}. ${esc(z.note)}</p>
+  <p class="sub">Where the score comes from: contraband finds ${Math.round(s.sev*1.1)}${canIntel()?`, open reports ${s.intel*3}`:''}, vulnerabilities ${Math.round(s.vulnW*1.6)}, Jail blotter ${Math.round(Math.min(40,s.bw)*1.2)}.</p>
   <div class="ovt"><div><b>${s.cb30}</b><span>Finds, 30d</span></div><div><b>${s.cb90}</b><span>Finds, 90d</span></div><div><b>${canIntel()?zreps.length:'—'}</b><span>Open reports</span></div><div><b>${vs.length}</b><span>Vulnerabilities</span></div></div>
   <dl class="kv"><dt>Cameras</dt><dd>${z.cams?z.cams+' fixed, about '+z.cover+'% floor coverage':'Not yet confirmed'}</dd><dt>Movement</dt><dd>${['','Very low','Low','Moderate','High','Very high'][z.move]} traffic (assumed)</dd></dl>
   <h3>Open vulnerabilities</h3>${vs.map(v=>`<button class="qrow" data-act="editVuln" data-id="${v.id}"><span class="t"><b>${esc(v.title)}</b><small>${esc(v.category)}</small></span>${sevChip(v.severity)}</button>`).join('')||'<p class="sub">None recorded.</p>'}
@@ -2186,9 +2254,32 @@ LISTS.vulns=function(){
 };
 PAGES.facility=function(){
   return head('Facility intelligence','Risk by area, built from recent contraband finds, open reports and known vulnerabilities.',`<button class="btn primary" data-act="newVuln">Add vulnerability</button><button class="btn" data-act="newArea">Add an area</button>`)
+  +sampleNotice('vulns')+anchorNote()
   +`<div class="facgrid"><section id="plan">${planBlock()}</section><section id="zonepanel">${zonePanel()}</section></div>
   <section class="sec"><h2>Vulnerability register</h2><div class="filters">${selF('vulns.status','All statuses',['Open','Mitigating','Closed'],ui.f.vulns.status)}</div><div data-list="vulns">${LISTS.vulns()}</div></section>${areasSection()}`;
 };
+
+
+/* ---- tasking: supervisors assign work to analysts ---- */
+const TASK_PRIO=['Routine','Elevated','Urgent'];
+const TASK_KIND={bl:'Blotter entry',ir:'Intel report',cb:'Contraband find',subj:'Subject',vuln:'Vulnerability'};
+const taskLinkBtn=l=>l?`<button class="lnk" data-act="${l.k==='vuln'?'editVuln':'open'}" data-k="${l.k}" data-id="${esc(l.id)}">${esc((TASK_KIND[l.k]||'Record')+' '+l.id)}</button>`:'';
+const taskStatusChip=t=>t.status==='Done'?chip('Done','c-green'):t.status==='Accepted'?chip('Accepted','c-steel'):t.status==='Cancelled'?chip('Cancelled'):chip('Assigned','c-amber');
+function taskCard(t){
+  const mine=t.assignee===ME(),live=t.status==='Open'||t.status==='Accepted',od=live&&overdue(t.due);
+  return `<div class="tkn ${live?'':'done'}"><div class="tt"><span class="idtag">${t.id}</span> <b>${esc(t.title)}</b> ${prioChip(t.priority)} ${taskStatusChip(t)}${t.detail?`<p class="sub">${esc(t.detail)}</p>`:''}<small class="sub">To ${esc(t.assignee)}, from ${esc(t.createdBy)}. ${taskLinkBtn(t.link)}${t.status==='Done'&&t.doneNote?`<br>Done ${fmtD(t.doneAt)}: ${esc(t.doneNote)}`:''}</small></div>
+  <div class="ta"><span class="${od?'od':'sub'}">${live?dueTxt(t.due):t.status==='Done'?'Done '+fmtD(t.doneAt):'Cancelled'}</span>${mine&&t.status==='Open'?`<button class="btn small" data-act="taskAccept" data-id="${t.id}">Accept</button>`:''}${(mine||canSupervise())&&live?`<button class="btn small" data-act="taskDone" data-id="${t.id}">Mark done</button>`:''}${canSupervise()?`<button class="lnk" data-act="editTasking" data-id="${t.id}">Edit</button>${live?`<button class="lnk" data-act="taskCancel" data-id="${t.id}">Cancel</button>`:`<button class="lnk" data-act="taskReopen" data-id="${t.id}">Reopen</button>`}`:''}</div></div>`;
+}
+PAGES.tasking=function(){
+  const me=ME(),all=S.taskings.slice().sort((a,b)=>Date.parse(a.due)-Date.parse(b.due)),live=t=>t.status==='Open'||t.status==='Accepted';
+  const mine=all.filter(t=>t.assignee===me&&live(t)),others=all.filter(t=>t.assignee!==me&&live(t));
+  const recent=all.filter(t=>!live(t)&&ageNow(t.doneAt||t.createdAt)<=30).sort((a,b)=>Date.parse(b.doneAt||b.createdAt)-Date.parse(a.doneAt||a.createdAt));
+  return head('Tasking','Supervisors assign work to analysts; analysts accept it and mark it done. A task can point at a blotter entry, report, find, subject or vulnerability.',canSupervise()?`<button class="btn" data-act="teamAdd">Add a team member</button><button class="btn primary" data-act="newTasking">Assign a task</button>`:'')
+  +`<section class="sec"><h2>Assigned to you (${mine.length})</h2>${mine.map(taskCard).join('')||'<p class="sub">Nothing is waiting on you.</p>'}</section>`
+  +(canSupervise()?`<section class="sec"><h2>Assigned to others (${others.length})</h2>${others.map(taskCard).join('')||'<p class="sub">Nothing open with anyone else.</p>'}</section><p class="sub">Team: ${S.team.map(esc).join(', ')}.</p>`:'')
+  +`<section class="sec light"><h2>Finished or cancelled in the last 30 days (${recent.length})</h2>${recent.map(taskCard).join('')||'<p class="sub">None.</p>'}</section>`;
+};
+function disclaimerHtml(r){return `<details class="disc"><summary>Handling and disclaimer${r.ack?` &middot; acknowledged by ${esc(r.ack.by)}, ${fmtD(r.ack.at)}`:''}</summary><p>${esc(disclaimerText())}</p></details>`}
 
 function areasSection(){
   const cz=S.customZones||[];
@@ -2199,7 +2290,7 @@ function areasSection(){
 function netReqHtml(){
   const f=ui.net.f,req=netReq(f),ok=req.every(r=>r.ok);
   return `<ul class="reqlist" aria-label="Required filters">${req.map(r=>`<li class="${r.ok?'ok':''}"><span aria-hidden="true">${r.ok?'✓':'○'}</span> <b>${r.label}</b>${r.ok?'':` <span class="sub">${r.hint}</span>`}</li>`).join('')}</ul>
-  <div class="acts"><button class="btn primary" data-act="netGen" ${ok?'':'disabled'}>Generate link chart</button><button class="btn" data-act="netClear">Clear filters</button>${ui.net.gen&&JSON.stringify(ui.net.gen).replace(/"stamp":\d+,?/,'')!==JSON.stringify(f)?'<span class="sub">The filters have changed since this chart was made. Generate again to update it.</span>':''}</div>`;
+  <div class="acts"><button class="btn primary" data-act="netGen" ${ok?'':'disabled'}>Generate link chart</button><button class="btn" data-act="netClear">Clear filters</button>${ui.net.gen&&(()=>{const g=Object.assign({},ui.net.gen);delete g.stamp;return JSON.stringify(g)!==JSON.stringify(f)})()?'<span class="sub">The filters have changed since this chart was made. Generate again to update it.</span>':''}</div>`;
 }
 function netMS(key,label,opts){
   const sel=ui.net.f[key],n=sel.length;
@@ -2271,8 +2362,10 @@ PAGES.collection=function(){
 PAGES.audit=function(){
   return head('Audit and data','Every change is recorded. Export a copy of all records or reset to the fictional sample data.')
   +`<div class="note"><b>Prototype notice.</b> Records live in this browser only. Do not enter real personal or case information. A production deployment needs authenticated users, role-based access, encrypted storage, tamper-proof audit logging and hosting that meets your agency's security policy.</div>
-  <div class="acts" style="margin-bottom:24px"><button class="btn primary" data-act="export">Export all records</button>${canIntel()?'<button class="btn" data-act="import">Import records</button><button class="btn" data-act="reset">Reset to sample data</button><button class="btn" data-act="removeTest">Remove test data…</button>':'<span class="sub">Importing, resetting and removing data are for intel personnel. Your export leaves out Intel reports and Sources.</span>'}</div>
-  <section class="sec"><h2>Audit trail</h2><div class="scroll"><table class="tbl"><thead><tr><th>When</th><th>Who</th><th>Action</th><th>Record</th></tr></thead><tbody>${S.audit.slice(0,100).map(a=>`<tr><td>${fmtDT(a.t)}</td><td>${esc(a.who)}</td><td>${esc(a.action)}</td><td>${esc(a.ref)}</td></tr>`).join('')}</tbody></table></div></section>`;
+  <div class="acts" style="margin-bottom:24px"><button class="btn primary" data-act="backupAll">Back up everything</button>${canIntel()?'<button class="btn" data-act="restoreDlg">Restore a backup…</button>':''}<button class="btn" data-act="export">Export records only</button>${canIntel()?'<button class="btn" data-act="import">Import records</button><button class="btn" data-act="reset">Reset to sample data</button><button class="btn" data-act="removeTest">Remove sample data…</button>':'<span class="sub">Importing, resetting and removing data are for intel personnel. Your export leaves out Intel reports and Sources.</span>'}</div>
+  <section class="sec">${canSupervise()?`<section class=\"sec light\"><h2>Intel report disclaimer</h2><p class=\"sub\">Shown on every intel report and printed on its PDF; a person filing a report confirms they have read it. Counsel should approve the final wording.</p><textarea id=\"discText\" rows=\"5\" style=\"width:100%\">${esc(disclaimerText())}</textarea><div class=\"acts\"><button class=\"btn primary\" data-act=\"discSave\">Save the wording</button><button class=\"btn\" data-act=\"discReset\">Restore the default</button></div></section>`:''}${(()=>{const file=location.protocol==='file:',nb=(typeof B!=='undefined'&&B&&B.rows)?B.rows.length:0;
+  return `<section class="sec light"><h2>About this copy</h2><dl class="kv"><dt>Version</dt><dd>${APP_VERSION}, built ${APP_BUILT}</dd><dt>Opened as</dt><dd>${file?'A file on this computer':'A web page ('+esc(location.hostname||'local')+')'}</dd><dt>Where its data is kept</dt><dd>${typeof blStorageOK!=='undefined'&&!blStorageOK?'This browser tab only: this browser is blocking storage, so blotter entries go when the tab closes.':'In this browser, for this '+(file?'file':'address')+' only.'}</dd><dt>Holds</dt><dd>${S.reports.length} intel reports, ${S.contraband.length} contraband finds, ${S.vulns.length} facility vulnerabilities, ${S.subjects.length} subjects and ${nb} blotter entries</dd></dl>
+  <p class="sub">Every copy (the published app, a downloaded file, a GitHub Pages copy) keeps its own data and doesn't see the others'. To make one copy match another, use <b>Back up everything</b> in the first and <b>Restore a backup</b> in the second. A downloaded file never updates itself: download it again to get a newer version, and check the version number here and at the foot of the sidebar.</p></section>`;})()}<h2>Audit trail</h2><div class="scroll"><table class="tbl"><thead><tr><th>When</th><th>Who</th><th>Action</th><th>Record</th></tr></thead><tbody>${S.audit.slice(0,100).map(a=>`<tr><td>${fmtDT(a.t)}</td><td>${esc(a.who)}</td><td>${esc(a.action)}</td><td>${esc(a.ref)}</td></tr>`).join('')}</tbody></table></div></section>`;
 };
 
 /* ================= drawers ================= */
@@ -2280,7 +2373,7 @@ function drIR(id){
   if(!canIntel())return '<p><b>Restricted.</b> Intel reports are for intel personnel only.</p>';
   const r=byId(reps(),id);if(!r)return '<p>Record not found.</p>';
   const cbs=S.contraband.filter(c=>c.report===r.id),rq=byId(S.reqs,r.req);
-  return `<div class="dh"><span class="idtag">${r.id}</span>${prioChip(r.priority)}${statusChip(r.status)}${r.handling.startsWith('Analyst')?chip('Source-protected','c-red'):''}</div><h2>${esc(r.title)}</h2>
+  return `<div class="dh"><span class="idtag">${r.id}</span>${prioChip(r.priority)}${statusChip(r.status)}${r.handling.startsWith('Analyst')?chip('Source-protected','c-red'):''}</div><h2>${esc(r.title)}</h2>${disclaimerHtml(r)}
   <dl class="kv"><dt>Category</dt><dd>${esc(r.cat)}</dd><dt>Reported</dt><dd>${fmtD(r.date)}</dd><dt>Location</dt><dd>${esc(zname(r.zone))}</dd><dt>Source</dt><dd>${esc(srcLabel(r.src))}</dd><dt>Grade</dt><dd>${grade(r.rel,r.cred)} <span class="sub">${esc(REL[r.rel])}. ${esc(CRED[r.cred])}.</span></dd><dt>Handling</dt><dd>${esc(r.handling)}</dd><dt>Requirement</dt><dd>${rq?esc(rq.id+' '+rq.title):'None'}</dd>${r.blotter?`<dt>Blotter entry</dt><dd><button class="lnk" data-act="open" data-k="bl" data-id="${esc(r.blotter)}">${esc(r.blotter)}</button></dd>`:''}</dl>
   <h3>Summary</h3><p class="prose">${esc(r.summary)}</p><h3>Analyst assessment</h3><p class="prose">${r.assessment?esc(r.assessment):'<span class="sub">Not yet written.</span>'}</p>
   <h3>Linked subjects</h3>${r.subjects.length?`<div class="links-photo">${r.subjects.map(subjectCard).join('')}</div>`:'<p class="sub">None linked.</p>'}
@@ -2312,16 +2405,16 @@ function drSubj(id){
 
 /* ================= rendering ================= */
 function renderRail(){
-  const newN=reps().filter(r=>r.status==='New').length,navItems=NAV.filter(n=>canIntel()||!['reports','sources'].includes(n[0]));
+  const newN=reps().filter(r=>r.status==='New').length,navItems=NAV.filter(n=>canIntel()||!['reports','sources','tasking'].includes(n[0])),nn=notifications().length;
   $('#rail').innerHTML=`<div class="brand"><b>Detention Intelligence</b><small>${esc(FACILITY)}</small></div>
   <nav class="nav" aria-label="Sections">${navItems.map(n=>`<button class="nb ${ui.route===n[0]?'on':''}" data-act="nav" data-r="${n[0]}" ${ui.route===n[0]?'aria-current="page"':''}><svg viewBox="0 0 16 16" aria-hidden="true">${ICONS[n[2]]}</svg><span>${n[1]}</span>${n[0]==='reports'&&newN?`<span class="ct" aria-label="${newN} new">${newN}</span>`:''}</button>`).join('')}</nav>
-  <div class="rail-foot"><label class="role"><span>Signed in as (demo)</span><select data-chg="role" aria-label="Demo role">${ROLES.map(r=>`<option value="${r.id}" ${r.id===ROLE?'selected':''}>${esc(r.name)}</option>`).join('')}</select></label><button data-act="theme">${isDark()?'Light theme':'Dark theme'}</button></div>`;
+  <div class="rail-foot"><button data-act="notifs" class="notifbtn">Notifications${nn?` <span class="ct">${nn}</span>`:''}</button><label class="role"><span>Signed in as (demo)</span><select data-chg="role" aria-label="Demo role">${ROLES.map(r=>`<option value="${r.id}" ${r.id===ROLE?'selected':''}>${esc(r.name)}</option>`).join('')}</select></label><button data-act="theme">${isDark()?'Light theme':'Dark theme'}</button><small class="ver">Version ${APP_VERSION} \u00b7 ${APP_BUILT}</small></div>`;
 }
 function syncMark(){const m=$('#mk2');if(m)m.textContent=blMarkText()}
 function restrictedPage(){
-  return head(ui.route==='sources'?'Sources':'Intel reports','This section is for intel personnel only.')+`<div class="empty"><p><b>Restricted.</b> Intel reports and Sources are limited to intel personnel. You are viewing as <b>${esc(roleInfo().name)}</b>.</p><p class="sub">In this prototype the role is a switch in the sidebar, so it shows what each role would see; it does not protect anything, because all the data is in this browser. In SharePoint the same rule is enforced by list permissions.</p><div class="acts"><button class="btn" data-act="nav" data-r="overview">Back to the overview</button></div></div>`;
+  return head(ui.route==='sources'?'Sources':ui.route==='tasking'?'Tasking':'Intel reports','This section is for intel personnel only.')+`<div class="empty"><p><b>Restricted.</b> Intel reports, Sources and Tasking are limited to intel personnel. You are viewing as <b>${esc(roleInfo().name)}</b>.</p><p class="sub">In this prototype the role is a switch in the sidebar, so it shows what each role would see; it does not protect anything, because all the data is in this browser. In SharePoint the same rule is enforced by list permissions.</p><div class="acts"><button class="btn" data-act="nav" data-r="overview">Back to the overview</button></div></div>`;
 }
-function render(){ui.anReg=[];renderRail();syncMark();$('#main').innerHTML=(['reports','sources'].includes(ui.route)&&!canIntel())?restrictedPage():(PAGES[ui.route]||PAGES.overview)()}
+function render(){ANCHOR=null;ui.anReg=[];renderRail();syncMark();$('#main').innerHTML=(['reports','sources','tasking'].includes(ui.route)&&!canIntel())?restrictedPage():(PAGES[ui.route]||PAGES.overview)()}
 function go(r){ui.route=r;closeDrawer();render();$('#main').scrollTop=0}
 function refreshLists(){$$('[data-list]').forEach(el=>{el.innerHTML=LISTS[el.dataset.list]()})}
 function refreshFacility(){const p=$('#plan'),z=$('#zonepanel');if(p)p.innerHTML=planBlock();if(z)z.innerHTML=zonePanel()}
@@ -2334,7 +2427,7 @@ function renderDrawer(){
   const t=ui.stack[ui.stack.length-1],d=$('#drawer');
   if(!t){d.classList.remove('on');syncScrim();return}
   const body=t.k==='ir'?drIR(t.id):t.k==='cb'?drCB(t.id):t.k==='bl'?drBL(t.id):drSubj(t.id);
-  d.innerHTML=`<button class="btn small x" data-act="closeDrawer">Close</button>${ui.stack.length>1?'<button class="lnk" data-act="back">Back to previous record</button>':''}${body}`;
+  d.innerHTML=`<button class="btn small x" data-act="closeDrawer">Close</button>${ui.stack.length>1?'<button class="lnk" data-act="back">Back to previous record</button>':''}${body}${assignBar(t)}`;
   d.classList.add('on');syncScrim();
 }
 function closeDrawer(){ui.stack=[];renderDrawer()}
@@ -2438,11 +2531,12 @@ const relOpts=Object.keys(REL).map(k=>({v:k,l:`${k}: ${REL[k]}`}));
 const credOpts=Object.keys(CRED).map(k=>({v:k,l:`${k}: ${CRED[k]}`}));
 const today=()=>new Date().toISOString();
 
+const disclaimerFormHtml=ex=>`<div class="ctxbox disc"><b>Handling and disclaimer</b><p>${esc(disclaimerText())}</p>${ex?(ex.ack?`<p class="sub">Acknowledged by ${esc(ex.ack.by)}, ${fmtD(ex.ack.at)}.</p>`:''):'<label class="chk"><input type="checkbox" id="dcAck"> I have read this and will handle the report accordingly.</label>'}</div>`;
 function formReport(id,pre){
   if(!canIntel()){toast('Intel reports are for intel personnel only');return}
   const ex=id?byId(reps(),id):null;
   const v=ex?Object.assign({},ex,{date:toDateIn(ex.date)}):Object.assign({title:'',cat:'Contraband',zone:'',src:'DIRECT',rel:'C',cred:3,priority:'Routine',status:'New',handling:'Need-to-know',req:'',subjects:[],date:toDateIn(today()),summary:'',assessment:'',cell:'',blotter:''},pre||{});
-  openForm({title:ex?'Edit '+ex.id:'New intel report',note:pre&&pre.blotter?'Started from blotter entry '+pre.blotter+'. The entry is shown below; change anything before you file.'+(pre.prea?' This is a PREA entry, so handling is set to Analyst only. Check with your PREA coordinator before filing.':''):undefined,context:pre&&pre.blotter&&typeof blContextHtml==='function'?blContextHtml(pre.blotter,{people:true}):undefined,submit:ex?'Save changes':'File report',values:v,fields:[
+  openForm({title:ex?'Edit '+ex.id:'New intel report',note:pre&&pre.blotter?'Started from blotter entry '+pre.blotter+'. The entry is shown below; change anything before you file.'+(pre.prea?' This is a PREA entry, so handling is set to Analyst only. Check with your PREA coordinator before filing.':''):undefined,context:disclaimerFormHtml(ex)+(pre&&pre.blotter&&typeof blContextHtml==='function'?blContextHtml(pre.blotter,{people:true}):''),submit:ex?'Save changes':'File report',values:v,fields:[
     {key:'title',label:'Title',req:true,wide:true},
     {key:'cat',label:'Category',type:'select',options:CATS},
     {key:'zone',label:'Unit or area',type:'select',options:zoneOptsPick(),req:true},
@@ -2459,8 +2553,8 @@ function formReport(id,pre){
     {key:'assessment',label:'Analyst assessment',type:'textarea',wide:true},
     {key:'blotter',label:'Jail blotter entry',help:'Optional: the report number of the blotter entry this report is about. That entry then links back to it.'},
     {key:'subjects',label:'Linked subjects',type:'multi',options:subjOpts(),wide:true}],
-    validate:o=>typeof blLinkCheck==='function'?blLinkCheck(o.blotter):'',
-    onSave(o){o.cred=Number(o.cred);o.blotter=String(o.blotter||'').trim().toUpperCase();const old=ex?(ex.blotter||''):'',addFlow=!ex&&pre&&pre.blotter&&o.blotter===pre.blotter;const rec=commit(S.reports,ex,o,'IR-'+new Date().getFullYear()+'-',4,'report',true);if(!ex)ui.route==='reports'&&refreshLists();if(addFlow&&typeof blAfterAdd==='function')blAfterAdd('ir',rec,pre.blotter);else if(typeof blSyncLink==='function')blSyncLink('ir',rec,old)}});
+    validate:o=>(!ex&&!($('#dcAck')&&$('#dcAck').checked))?'Tick the box to confirm you have read the disclaimer.':(typeof blLinkCheck==='function'?blLinkCheck(o.blotter):''),
+    onSave(o){o.cred=Number(o.cred);if(!ex)o.ack={by:ME(),at:new Date().toISOString()};o.blotter=String(o.blotter||'').trim().toUpperCase();const old=ex?(ex.blotter||''):'',addFlow=!ex&&pre&&pre.blotter&&o.blotter===pre.blotter;const rec=commit(S.reports,ex,o,'IR-'+new Date().getFullYear()+'-',4,'report',true);if(!ex)ui.route==='reports'&&refreshLists();if(addFlow&&typeof blAfterAdd==='function')blAfterAdd('ir',rec,pre.blotter);else if(typeof blSyncLink==='function')blSyncLink('ir',rec,old)}});
 }
 function formCB(id,pre){
   const ex=id?byId(S.contraband,id):null;
@@ -2646,6 +2740,7 @@ async function reportPdf(id){
   }
   const cbs=S.contraband.filter(c=>c.report===r.id);
   heading('Linked contraband finds');list(cbs.map(c=>`${c.id} \u2014 ${itemsLabel(c)}, ${zname(c.zone)}${c.cell?' ('+c.cell+')':''}, ${fmtD(c.date)}`));
+  heading('Handling and disclaimer');para(disclaimerText()+(r.ack?` Acknowledged by ${r.ack.by} on ${fmtD(r.ack.at)}.`:''));
   footer();
   const bytes=doc.output('arraybuffer');
   const filename=`${r.id}-${r.title.slice(0,40).replace(/[^\w\- ]+/g,'').trim().replace(/\s+/g,'-')}.pdf`;
@@ -2730,6 +2825,7 @@ async function subjectDossierPdf(id){
     heading('Blotter entries');
     list(es.map(e=>`${e.ReportID} \u2014 ${EVL_OF(e.EventType)}, ${e.LocationRaw||zname(e.ZoneCode)}, ${fmtD(e.OccurredAt)}`));
   }
+  if(canIntel()){heading('Handling');para(disclaimerText())}
   footer();
   const bytes=doc.output('arraybuffer');
   const filename=`${s.id}-dossier-${s.name.slice(0,40).replace(/[^\w\- ]+/g,'').trim().replace(/\s+/g,'-')}.pdf`;
@@ -2741,7 +2837,7 @@ async function subjectDossierPdf(id){
 /* ================= data tools ================= */
 function copyText(txt){const fb=()=>{const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast('Copied')}catch(e){toast('Copy failed. Select the text and copy it manually.')}ta.remove()};try{navigator.clipboard.writeText(txt).then(()=>toast('Copied'),fb)}catch(e){fb()}}
 async function doExport(){
-  const data=JSON.stringify(canIntel()?S:Object.assign({},S,{reports:[],sources:[]}),null,2);log('Exported all records',canIntel()?'All records':'Without Intel reports and Sources');
+  const data=JSON.stringify(canIntel()?S:Object.assign({},S,{reports:[],sources:[],taskings:[]}),null,2);log('Exported all records',canIntel()?'All records':'Without Intel reports and Sources');
   if(DL){try{await DL.save({filename:`dims-export-${new Date().toISOString().slice(0,10)}.json`,data});toast('Export saved');return}catch(e){if(e&&e.code==='declined')return}}
   openModal(`<h2>Export records</h2><p class="sub">Copy this JSON and store it somewhere secure.</p><textarea class="big" readonly id="expta">${esc(data)}</textarea><div class="acts"><button class="btn primary" data-act="copyExp">Copy</button><button class="btn" data-act="closeModal">Close</button></div>`);
 }
@@ -2758,48 +2854,45 @@ function runReset(){S=seedData();migrateState(S);syncZones();log('Reset to sampl
 /* ---- remove test data ----
    The fictional sample records are told apart from yours by matching the sample set's own ids and
    titles, so a sample record you have edited counts as yours and is kept. */
-const SAMPLE_KEYS={reports:'title',contraband:'type',subjects:'name',sources:'codename',reqs:'title',tasks:'title',vulns:'title'};
-function sampleInventory(){
-  const seed=seedData(),ids={};let n=0,total=0;
-  Object.keys(SAMPLE_KEYS).forEach(k=>{
-    const key=SAMPLE_KEYS[k],m=new Map((seed[k]||[]).map(x=>[x.id,x[key]]));
-    ids[k]=(S[k]||[]).filter(x=>m.has(x.id)&&m.get(x.id)===x[key]).map(x=>x.id);
-    n+=ids[k].length;total+=(S[k]||[]).length;
-  });
-  return{ids,n,total,mine:total-n};
+const SAMPLE_NAMES={reports:'intel reports',contraband:'contraband finds',vulns:'facility vulnerabilities',subjects:'subjects',sources:'sources',reqs:'collection requirements',tasks:'collection tasks'};
+const sampleCount=k=>(k?[k]:SAMPLE_LISTS).reduce((a,x)=>a+(S[x]||[]).filter(r=>r.sample).length,0);
+function sampleInventory(){const by={};SAMPLE_LISTS.forEach(k=>by[k]=(S[k]||[]).filter(r=>r.sample).length);return{by,n:sampleCount(),total:SAMPLE_LISTS.reduce((a,k)=>a+(S[k]||[]).length,0)}}
+/* Shown on pages that still hold sample records. */
+function sampleNotice(k){
+  const n=sampleCount(k);if(!n)return '';
+  const what=k?SAMPLE_NAMES[k]:'records: intel reports, contraband finds, facility vulnerabilities, subjects and more';
+  return `<div class="notice">${k?'This page includes':'The app still holds'} <b>${n}</b> fictional sample ${what}. ${canIntel()?'<button class="btn small" data-act="removeTest">Remove sample data</button>':'An intel analyst or supervisor can remove them.'}</div>`;
 }
 function removeTestDlg(){
   if(!canIntel()){toast('Removing data is for intel personnel only');return}
-  const inv=sampleInventory(),nb=(typeof B!=='undefined'&&B&&B.rows)?B.rows.length:0,auto=S.subjects.filter(s=>s.src==='blotter').length;
-  openModal(`<h2>Remove test data</h2>
-  <p>This browser holds <b>${inv.n}</b> fictional sample records and <b>${inv.mine}</b> others: records you added or changed${auto?`, including ${auto} subjects created from the blotter`:''}.</p>
+  const inv=sampleInventory(),nb=(typeof B!=='undefined'&&B&&B.rows)?B.rows.length:0,mine=inv.total-inv.n;
+  const list=SAMPLE_LISTS.filter(k=>inv.by[k]).map(k=>`${inv.by[k]} ${SAMPLE_NAMES[k]}`).join(', ');
+  openModal(`<h2>Remove sample data</h2>
+  <p>${inv.n?`The app came with fictional sample data. <b>${inv.n}</b> sample records are still here: ${esc(list)}.`:'No sample records are left.'} ${mine?`There ${mine===1?'is':'are'} also <b>${mine}</b> record${mine===1?'':'s'} you added.`:''}</p>
   <fieldset class="fld wide"><div class="checks" style="flex-direction:column;max-height:none">
-   <label class="chk"><input type="radio" name="rtMode" value="sample" checked> <span>Remove the sample records only (${inv.n}). Anything you added or changed stays. A sample record that one of yours points to stays too, so nothing is left linked to a record that's gone.</span></label>
-   <label class="chk"><input type="radio" name="rtMode" value="all"> <span>Remove every report, contraband find, subject, source, requirement, task and vulnerability (${inv.total}), so the app starts completely empty.</span></label>
+   <label class="chk"><input type="radio" name="rtMode" value="sample" ${inv.n?'checked':'disabled'}> <span><b>Remove all the sample data</b> (${inv.n}), including sample records you have edited. Your own records stay; any link from one of yours to a sample record is cleared.</span></label>
+   <label class="chk"><input type="radio" name="rtMode" value="all" ${inv.n?'':'checked'}> <span><b>Remove everything</b>: every intel report, contraband find, facility vulnerability, subject, source and collection item (${inv.total}), yours included, so the app starts empty.</span></label>
    <label class="chk"><input type="checkbox" id="rtBlot"> <span>Also clear the ${nb} blotter entries stored on this device</span></label>
   </div></fieldset>
-  <p class="sub">Your pattern rules, saved location mappings and the audit trail are kept. This can't be undone, though Reset to sample data on this page brings the sample set back.</p>
+  <p class="sub">Areas, location mappings, pattern rules, the team list and the audit trail are kept. Reset to sample data on the Audit and data page brings the sample set back.</p>
   <div class="err" id="rtErr" role="alert"></div><div class="acts"><button class="btn primary" id="rtGo">Remove</button><button class="btn" data-act="closeModal">Cancel</button></div>`);
   $('#rtGo').onclick=async()=>{
     const mode=document.querySelector('input[name=rtMode]:checked').value,alsoBlot=$('#rtBlot').checked;
-    const before=Object.keys(SAMPLE_KEYS).reduce((a,k)=>a+(S[k]||[]).length,0);
-    if(mode==='all')Object.keys(SAMPLE_KEYS).forEach(k=>{S[k]=[]});
-    else{
-      const gone={};Object.keys(inv.ids).forEach(k=>gone[k]=new Set(inv.ids[k]));
-      let changed=true;
-      const keep=(k,id)=>{if(id&&gone[k]&&gone[k].has(id)){gone[k].delete(id);changed=true}};
-      while(changed){changed=false;
-        S.reports.forEach(r=>{if(gone.reports.has(r.id))return;(r.subjects||[]).forEach(s=>keep('subjects',s));keep('sources',r.src);keep('reqs',r.req)});
-        S.contraband.forEach(c=>{if(gone.contraband.has(c.id))return;(c.subjects||[]).forEach(s=>keep('subjects',s));keep('reports',c.report)});
-        S.tasks.forEach(x=>{if(gone.tasks.has(x.id))return;keep('reqs',x.req)});
-      }
-      Object.keys(gone).forEach(k=>{S[k]=S[k].filter(x=>!gone[k].has(x.id))});
-    }
-    const removed=before-Object.keys(SAMPLE_KEYS).reduce((a,k)=>a+(S[k]||[]).length,0);
+    const before=SAMPLE_LISTS.reduce((a,k)=>a+(S[k]||[]).length,0),gone={};
+    SAMPLE_LISTS.forEach(k=>gone[k]=new Set((S[k]||[]).filter(r=>mode==='all'||r.sample).map(r=>r.id)));
+    // a sample requirement that holds tasks you added stays, so your tasks keep their place
+    if(mode==='sample')S.tasks.forEach(x=>{if(!gone.tasks.has(x.id)&&gone.reqs.has(x.req))gone.reqs.delete(x.req)});
+    SAMPLE_LISTS.forEach(k=>{S[k]=(S[k]||[]).filter(r=>!gone[k].has(r.id))});
+    S.reports.forEach(r=>{r.subjects=(r.subjects||[]).filter(x=>!gone.subjects.has(x));if(gone.sources.has(r.src))r.src='';if(gone.reqs.has(r.req))r.req=''});
+    S.contraband.forEach(c=>{c.subjects=(c.subjects||[]).filter(x=>!gone.subjects.has(x));if(gone.reports.has(c.report))c.report=''});
+    const kindList={ir:'reports',cb:'contraband',subj:'subjects',vuln:'vulns'};
+    (S.taskings||[]).forEach(t=>{if(t.link&&kindList[t.link.k]&&gone[kindList[t.link.k]].has(t.link.id))t.link=null});
+    if(mode==='sample')S.audit=(S.audit||[]).filter(a=>!a.sample);
+    const removed=before-SAMPLE_LISTS.reduce((a,k)=>a+(S[k]||[]).length,0);
     SUBJ_IDX=null;
     if(alsoBlot&&typeof blClearAll==='function'){await blClearAll();blSetEmpty();S.blSeen={}}
-    log('Removed test data',`${removed} records${alsoBlot?' and the stored blotter entries':''} (${mode==='all'?'everything':'sample records only'})`);
-    ui.stack=[];ui.net.sig='';ui.net.pos={};ui.zone=null;closeModal();closeDrawer();render();
+    log(mode==='all'?'Removed all records':'Removed sample data',`${removed} records${alsoBlot?' and the stored blotter entries':''}`);
+    ui.stack=[];ui.net.sig='';ui.net.pos={};ui.net.gen=null;ui.zone=null;closeModal();closeDrawer();render();
     toast(`${removed} record${removed===1?'':'s'} removed${alsoBlot?', blotter cleared':''}`);
   };
 }
@@ -2841,6 +2934,68 @@ function delAreaDlg(code){
   openModal(`<h2>Remove ${esc(z.title)}?</h2><p>No record uses it, so nothing is affected.</p><div class="acts"><button class="btn primary" id="daGo">Remove</button><button class="btn" data-act="closeModal">Cancel</button></div>`);
   $('#daGo').onclick=()=>{S.customZones=S.customZones.filter(x=>x.code!==code);log('Removed area',code);persist();syncZones();if(typeof B!=='undefined'&&B&&B.rows)B.zones=BLC.zoneTable(B.rows);closeModal();render();toast('Area removed')};
 }
+
+/* ---- tasking and notifications ---- */
+function taskParseLink(s){
+  s=String(s||'').trim().toUpperCase();if(!s)return null;
+  if(/^IR-/.test(s))return byId(S.reports,s)?{k:'ir',id:s}:null;
+  if(/^CB-/.test(s))return byId(S.contraband,s)?{k:'cb',id:s}:null;
+  if(/^S-/.test(s))return byId(S.subjects,s)?{k:'subj',id:s}:null;
+  if(/^V-/.test(s))return byId(S.vulns,s)?{k:'vuln',id:s}:null;
+  return (typeof blFind==='function'&&blFind(s))?{k:'bl',id:s}:null;
+}
+function formTasking(id,pre){
+  if(!canSupervise()){toast('Only a supervisor can assign tasks');return}
+  const ex=id?byId(S.taskings,id):null;
+  const v=ex?Object.assign({},ex,{due:toDateIn(ex.due),link:ex.link?ex.link.id:''}):Object.assign({title:'',detail:'',assignee:S.team[0]||'',due:toDateIn(new Date(NOW+3*DAY).toISOString()),priority:'Routine',link:''},pre||{});
+  openForm({title:ex?'Edit '+ex.id:'Assign a task',submit:ex?'Save changes':'Assign task',values:v,fields:[
+    {key:'title',label:'Task',req:true,wide:true},
+    {key:'detail',label:'Instructions',type:'textarea',wide:true},
+    {key:'assignee',label:'Assign to',type:'select',options:S.team.slice()},
+    {key:'due',label:'Due',type:'date'},{key:'priority',label:'Priority',type:'select',options:TASK_PRIO},
+    {key:'link',label:'Linked record (optional)',wide:true,help:'A blotter report number, or an ID such as IR-2026-0101, CB-0001, S-01 or V-01.'}],
+    validate:o=>{const l=String(o.link||'').trim();return l&&!taskParseLink(l)?`Nothing has the ID ${l}.`:''},
+    onSave(o){
+      const link=String(o.link||'').trim()?taskParseLink(o.link):null;
+      if(ex){Object.assign(ex,{title:o.title,detail:o.detail,assignee:o.assignee,due:o.due,priority:o.priority,link});log('Edited task',ex.id)}
+      else{const rec={id:nextId('TK-',S.taskings,2),title:o.title,detail:o.detail,assignee:o.assignee,due:o.due,priority:o.priority,status:'Open',link,createdBy:ME(),createdAt:new Date().toISOString()};S.taskings.unshift(rec);log('Assigned task',rec.id+' to '+rec.assignee)}
+      persist();closeModal();render();renderDrawer();toast(ex?'Task saved':'Task assigned');
+    }});
+}
+const assignBar=t=>canSupervise()&&['bl','ir','cb','subj'].includes(t.k)?`<div class="addto"><span class="lbl">Supervisor</span><button class="btn small" data-act="taskFrom" data-k="${t.k}" data-id="${esc(t.id)}">Assign as a task</button></div>`:'';
+/* What needs this person's attention, worked out from the records each time. A dismissed item stays hidden until the situation
+   it describes changes (the count or the date is part of its key). */
+function notifications(){
+  const me=ME(),out=[],done=S.notifDone||{};
+  const add=(id,text,act)=>{const key=me+'|'+id;if(!done[key])out.push({key,text,act})};
+  if(canIntel()){
+    S.taskings.forEach(t=>{
+      const live=t.status==='Open'||t.status==='Accepted';
+      if(t.assignee===me&&live){
+        if(overdue(t.due))add(`t:${t.id}:overdue`,`Overdue: ${t.title}`,{a:'nav',r:'tasking'});
+        else if(Date.parse(t.due)-NOW<=2*DAY)add(`t:${t.id}:soon`,`${dueTxt(t.due)}: ${t.title}`,{a:'nav',r:'tasking'});
+        if(t.status==='Open')add(`t:${t.id}:new`,`Assigned to you by ${t.createdBy}: ${t.title}`,{a:'nav',r:'tasking'});
+      }
+      if(canSupervise()&&t.createdBy===me&&t.status==='Done')add(`t:${t.id}:done`,`${t.assignee} finished: ${t.title}`,{a:'nav',r:'tasking'});
+    });
+    reps().filter(r=>r.priority==='Urgent'&&r.status==='New').forEach(r=>add(`r:${r.id}:urgent`,`Urgent report not yet reviewed: ${r.title}`,{a:'open',k:'ir',id:r.id}));
+    S.subjects.filter(s=>s.watch!=='None'&&overdue(s.review)).forEach(s=>add(`s:${s.id}:review`,`Watch-list review overdue: ${s.name}`,{a:'open',k:'subj',id:s.id}));
+  }
+  if(typeof B!=='undefined'&&B&&B.rows&&B.rows.length){
+    const n=B.review.length;if(n)add(`bl:review:${n}`,`${n} blotter entr${n===1?'y is':'ies are'} flagged for review`,{a:'blGo',to:'bl-review'});
+    const pend=B.rows.filter(e=>e.CandidateFind==='Y'&&e.FindState==='Pending').length;
+    if(pend)add(`bl:finds:${pend}`,`${pend} possible contraband find${pend===1?'':'s'} from the blotter waiting`,{a:'nav',r:'contraband'});
+    blMissing({range:'30',through:'own'}).forEach(s=>{if(s.missing.length)add(`bl:missing:${s.k}:${s.missing.length}`,`${s.name}: ${s.missing.length} blotter date${s.missing.length===1?'':'s'} missing in the last 30 days`,{a:'blGo',to:'bl-missing'})});
+  }
+  return out;
+}
+function notifsDlg(){
+  const list=notifications();ui.notifList=list;
+  openModal(`<h2>Notifications</h2>${list.length?list.map((n,i)=>`<div class="qrow" style="cursor:default"><span class="t"><b>${esc(n.text)}</b></span><button class="btn small" data-act="notifOpen" data-i="${i}">Open</button><button class="lnk" data-act="notifDismiss" data-i="${i}">Dismiss</button></div>`).join(''):'<p class="sub">Nothing needs your attention.</p>'}
+  <p class="sub">Worked out from the records each time you look, for ${esc(roleInfo().name)}. Dismissing one hides it until the situation changes. In SharePoint, flows send the same alerts in Teams and email.</p>
+  <div class="acts">${list.length?'<button class="btn" data-act="notifAll">Dismiss all</button>':''}<button class="btn primary" data-act="closeModal">Close</button></div>`);
+}
+const taskById=id=>byId(S.taskings,id);
 
 async function brief(){
   if(!SAMPLE)return;
@@ -2897,7 +3052,20 @@ const A={
   },
   removePersonRow(d,el){el.closest('.newp-row').remove()},
   theme(){const next=isDark()?'light':'dark';document.documentElement.dataset.theme=next;try{localStorage.setItem('dims.theme',next)}catch(e){}renderRail()},
-  export(){doExport()},import(){doImport()},runImport,reset(){doReset()},runReset,newArea(){formArea()},editArea(d){formArea(d.id)},delArea(d){delAreaDlg(d.id)},blZoneList(d){ui.f.blotter=Object.assign(BL_FILTER_DEFAULT(),{zone:d.id});go('blotter');setTimeout(()=>{const el=document.getElementById('bl-entries');if(el)el.scrollIntoView({block:'start'})},80)},itemAdd(){const box=$('#itemsRows');if(box)box.insertAdjacentHTML('beforeend',itemRowHtml({type:TYPE_NAMES[0],qty:1,unit:UNITS[TYPE_NAMES[0]],desc:''}))},itemDel(d,el){const rows=$$('.item-row');if(rows.length<2){toast('A find needs at least one item');return}const r=el&&el.closest('.item-row');if(r)r.remove()},removeTest(){removeTestDlg()},subjMore(){ui.f.subjects.limit+=150;refreshLists()},
+  export(){doExport()},import(){doImport()},runImport,reset(){doReset()},runReset,
+  newTasking(){formTasking()},editTasking(d){formTasking(d.id)},
+  taskFrom(d){const lab={bl:'Review blotter entry',ir:'Follow up on report',cb:'Follow up on find',subj:'Review subject'}[d.k]||'Follow up on';formTasking(null,{link:d.id,title:`${lab} ${d.id}`})},
+  taskAccept(d){const t=taskById(d.id);if(!t)return;t.status='Accepted';t.acceptedAt=new Date().toISOString();log('Accepted task',t.id);persist();render();toast('Accepted')},
+  taskDone(d){const t=taskById(d.id);if(!t)return;openModal(`<h2>Mark ${esc(t.id)} done</h2><p>${esc(t.title)}</p><label class="fld wide"><span>What was done (optional)</span><textarea id="tdNote" rows="3"></textarea></label><div class="acts"><button class="btn primary" id="tdGo">Mark done</button><button class="btn" data-act="closeModal">Cancel</button></div>`);$('#tdGo').onclick=()=>{t.status='Done';t.doneAt=new Date().toISOString();t.doneNote=$('#tdNote').value.trim();log('Completed task',t.id);persist();closeModal();render();toast('Marked done')}},
+  taskCancel(d){const t=taskById(d.id);if(!t)return;t.status='Cancelled';t.doneAt=new Date().toISOString();log('Cancelled task',t.id);persist();render();toast('Cancelled')},
+  taskReopen(d){const t=taskById(d.id);if(!t)return;t.status='Open';delete t.doneAt;delete t.doneNote;log('Reopened task',t.id);persist();render();toast('Reopened')},
+  teamAdd(){openModal(`<h2>Add a team member</h2><label class="fld"><span>Name</span><input id="tmName" placeholder="For example Analyst 3 (demo)"></label><div class="err" id="tmErr" role="alert"></div><div class="acts"><button class="btn primary" id="tmGo">Add</button><button class="btn" data-act="closeModal">Cancel</button></div>`);$('#tmGo').onclick=()=>{const n=$('#tmName').value.trim();if(!n){$('#tmErr').textContent='Enter a name.';return}if(S.team.some(x=>x.toLowerCase()===n.toLowerCase())){$('#tmErr').textContent='That name is already on the team.';return}S.team.push(n);log('Added team member',n);persist();closeModal();render();toast('Added')}},
+  notifs(){notifsDlg()},
+  notifOpen(d){const n=(ui.notifList||[])[+d.i];closeModal();if(!n)return;if(n.act.a==='nav')go(n.act.r);else if(n.act.a==='open')openRecord(n.act.k,n.act.id);else if(n.act.a==='blGo')A.blGo({to:n.act.to})},
+  notifDismiss(d){const n=(ui.notifList||[])[+d.i];if(!n)return;S.notifDone[n.key]=1;persist();renderRail();notifsDlg()},
+  notifAll(){(ui.notifList||[]).forEach(n=>{S.notifDone[n.key]=1});persist();renderRail();notifsDlg()},
+  discSave(){S.disclaimer=$('#discText').value.trim();log('Edited intel report disclaimer','Wording saved');persist();render();toast('Disclaimer saved')},
+  discReset(){delete S.disclaimer;log('Restored intel report disclaimer','Default wording');persist();render();toast('Default restored')},newArea(){formArea()},editArea(d){formArea(d.id)},delArea(d){delAreaDlg(d.id)},blZoneList(d){ui.f.blotter=Object.assign(BL_FILTER_DEFAULT(),{zone:d.id});go('blotter');setTimeout(()=>{const el=document.getElementById('bl-entries');if(el)el.scrollIntoView({block:'start'})},80)},itemAdd(){const box=$('#itemsRows');if(box)box.insertAdjacentHTML('beforeend',itemRowHtml({type:TYPE_NAMES[0],qty:1,unit:UNITS[TYPE_NAMES[0]],desc:''}))},itemDel(d,el){const rows=$$('.item-row');if(rows.length<2){toast('A find needs at least one item');return}const r=el&&el.closest('.item-row');if(r)r.remove()},removeTest(){removeTestDlg()},subjMore(){ui.f.subjects.limit+=150;refreshLists()},
   pdfReport(d){reportPdf(d.id)},
   dossier(d){subjectDossierPdf(d.id)},
   copyExp(){copyText($('#expta').value)},copyBrief(){copyText($('#briefout').textContent)},brief
@@ -2917,7 +3085,7 @@ document.addEventListener('change',e=>{
   else if(c==='role'){
     ROLE=el.value;try{localStorage.setItem('dims.role',ROLE)}catch(err){}
     log('Switched demo role',roleInfo().name);
-    if(!canIntel()&&['reports','sources'].includes(ui.route))ui.route='overview';
+    if(!canIntel()&&['reports','sources','tasking'].includes(ui.route))ui.route='overview';
     if(!canIntel()&&ui.an&&ui.an.ds==='reports')ui.an=AN_DEFAULT('blotter');
     ui.stack=[];ui.net.sig='';ui.net.pos={};ui.net.gen=null;closeDrawer();render();toast('Now viewing as '+roleInfo().name);
   }
@@ -2981,6 +3149,7 @@ async function blSetMeta(key,value){return blPutAll('meta',[{key,value}])}
 async function blClearAll(){
   try{const db=await blOpenDB();const t=db.transaction(['entries','review','meta','preaLog'],'readwrite');
     ['entries','review','meta','preaLog'].forEach(n=>t.objectStore(n).clear());
+    t.objectStore('meta').put({key:'wipeTag',value:BL_WIPE_TAG});  // keep the first-run marker, or the next start would wipe new entries
     return await new Promise((res,rej)=>{t.oncomplete=res;t.onerror=()=>rej(t.error)});}
   catch(e){blStorageOK=false}
 }
@@ -3068,7 +3237,7 @@ function blReparse(e){
   const dm=/^(?:[A-Z]{2,5})?(\d{2})(\d{2})(\d{2})-/.exec(e.ReportID||'');
   const duty=e.DutyDate||(dm?`20${dm[3]}-${dm[1]}-${dm[2]}`:'');
   const refs=BLC.extractRefs((e.Summary||'')+' . '+(e.ActionsTaken||''));
-  return Object.assign(r,{People:people,SubjectIDs:people.map(p=>p.bk).join(';'),AreasMentioned:areas.join('; '),WorkOrders:refs.wo.join('; '),CaseNumbers:refs.cs.join('; '),DutyDate:duty,ParseVer:4});
+  return Object.assign(r,{People:people,SubjectIDs:people.map(p=>p.bk).join(';'),AreasMentioned:areas.join('; '),WorkOrders:e.RefsManual==='Y'?(e.WorkOrders||''):refs.wo.join('; '),CaseNumbers:e.RefsManual==='Y'?(e.CaseNumbers||''):refs.cs.join('; '),DutyDate:duty,ParseVer:4});
 }
 async function blLoadFromDB(){
   const [entries,legacyReview]=await Promise.all([blGetAll('entries'),blGetAll('review')]);
@@ -3412,6 +3581,8 @@ function blIntakeDlg(){
   <label class="fld"><span>Subcategory</span><input id="ixSub" list="ixSubList" placeholder="e.g. CODE TWO/ NO FORCE UTILIZED" required><datalist id="ixSubList">${BL_SUBCAT_SUGGEST.map(s=>`<option value="${esc(s)}">`).join('')}</datalist></label>
   <label class="fld wide"><span>Unit or area <small>(several: separate with commas, for example Unit 1A, Unit 2A)</small></span><input id="ixLoc" list="ixLocList" placeholder="e.g. Unit AB, or Main Jail booking" required><datalist id="ixLocList">${zoneList.map(z=>`<option value="${esc(z.Title)}">`).join('')}</datalist></label>
   <label class="fld wide"><span>Booking numbers involved (optional)</span><input id="ixSubj" placeholder="Comma-separated, e.g. 1131571, 1128004"></label>
+  <label class="fld"><span>Work order numbers</span><input id="ixWO" placeholder="Optional"></label>
+  <label class="fld"><span>Case numbers</span><input id="ixCS" placeholder="Optional"></label>
   <label class="fld wide"><span>Summary</span><textarea id="ixSum" rows="3" required placeholder="What happened, in the usual blotter style."></textarea></label>
   <label class="fld wide"><span>Actions taken (optional)</span><textarea id="ixAct" rows="2"></textarea></label>
   <fieldset class="fld wide"><legend>Options</legend><div class="checks">
@@ -3445,6 +3616,12 @@ async function blSubmitIntake(){
   const res=BLC.cleanRows([row],{keepOfficers:$('#ixKeepOfficer').checked,locMap:blLocMap()});
   const rec=(res.clean[0]||res.review[0]);
   if(!rec){err.textContent='Could not classify this entry. Check the fields and try again.';return}
+  const refList=s=>[...new Set(String(s||'').split(/[,;\s]+/).map(x=>x.replace(/^#/,'').trim().toUpperCase()).filter(Boolean))];
+  const wo=refList($('#ixWO').value),cs=refList($('#ixCS').value);
+  const badWo=wo.find(x=>!/^\d{5,8}$/.test(x)),badCs=cs.find(x=>!/\d/.test(x));
+  if(badWo){err.textContent=`"${badWo}" isn't a work order number (5 to 8 digits).`;return}
+  if(badCs){err.textContent=`"${badCs}" isn't a case number.`;return}
+  if(wo.length||cs.length){rec.WorkOrders=[...new Set(String(rec.WorkOrders||'').split('; ').filter(Boolean).concat(wo))].join('; ');rec.CaseNumbers=[...new Set(String(rec.CaseNumbers||'').split('; ').filter(Boolean).concat(cs))].join('; ');rec.RefsManual='Y'}
   rec.ImportedAt=new Date().toISOString();
   const wasEmpty=!B||B.source==='sample';
   rec.FindState=rec.CandidateFind==='Y'?'Pending':'None';await blPutAll('entries',[rec]);
@@ -3585,7 +3762,7 @@ PAGES.blotter=function(){
   +`<div class="duo"><section class="sec"><h2>Units and areas</h2><div class="tabs" role="tablist">${BL_LAYERS.map(l=>`<button class="tab ${ui.bl.layer===l[0]?'on':''}" role="tab" aria-selected="${ui.bl.layer===l[0]}" data-act="bllayer" data-v="${l[0]}">${l[1]}</button>`).join('')}</div>${blMapSvg()}<div class="legend"><span>Lower</span><i></i><span>Higher</span><span>Last 30 days. Select a tile to filter the entries below. The layout is schematic.</span></div></section>
    <section class="sec"><h2>Security incidents per week</h2>${columns(wk.v,wk.labels,'Security incidents per week, last 8 weeks',wkProj)}${wkProj!=null?`<p class="sub">Next week, projected from an 8-week straight-line trend: <b>${wkProj}</b>. A simple projection, not a forecast model -- see the guide before reading much into it.</p>`:''}<h2 style="margin-top:22px">When incidents are logged</h2>${dowHeat(inc.map(e=>({date:e.OccurredAt})))}<p class="sub">Last 60 days, by day of week and four-hour block, in the times as written in the blotter.</p></section></div>`
   +`<div class="duo"><section class="sec"><h2>Entry types, 30 days</h2>${hbars(evs)}</section><section class="sec"><h2>Possible contraband finds</h2>${pend.length||rows.some(e=>e.CandidateFind==='Y')?rows.filter(e=>e.CandidateFind==='Y').sort((a,b)=>b._t-a._t).slice(0,6).map(e=>`<div class="qrow" style="cursor:default"><span class="t"><b>${esc(e.CandidateType||'Other')}, ${esc(blZoneName(e.ZoneCode))}</b><small>${esc(e.ReportID)}, ${fmtDT(e.OccurredAt)}</small></span>${e.FindState==='Pending'?`<button class="btn small" data-act="open" data-k="bl" data-id="${esc(e.ReportID)}">Read</button><button class="btn small" data-act="blConfirm" data-id="${esc(e.ReportID)}">Confirm</button><button class="btn small" data-act="blReject" data-id="${esc(e.ReportID)}">Reject</button>`:chip(e.FindState,e.FindState==='Confirmed'?'c-green':'c-grey')}</div>`).join(''):'<p class="sub">No entries look like a contraband find.</p>'}<p class="sub">Routine inspections that say no contraband was found are ignored. Read an entry first if you need the context; the find form shows it beside the fields.</p></section></div>`
-  +blEntriesSection()+blLocationsSection()+blReviewSection()
+  +blEntriesSection()+blLocationsSection()+blMissingSection()+blReviewSection()
   +`<section class="sec light"><h2>Import report</h2>${blRepHtml()}</section>`;
 };
 const BL_NOTE_TEXT={
@@ -3674,6 +3851,8 @@ function blEditDlg(id,opt){
   <label class="fld wide"><span>Subcategory</span><input id="edSub" value="${esc(e.Subcategory)}"></label>
   <label class="fld wide"><span>Unit or area <small>(several units or areas: separate with commas, for example Unit 1A, Unit 2A)</small></span><input id="edLoc" list="edLocList" value="${esc(e.LocationRaw)}"><datalist id="edLocList">${zl}</datalist></label>
   <label class="fld wide"><span>Booking numbers</span><input id="edIds" value="${esc((e.SubjectIDs||'').split(';').filter(Boolean).join(', '))}" placeholder="Comma-separated"></label>
+  <label class="fld"><span>Work order numbers</span><input id="edWO" value="${esc((e.WorkOrders||'').split('; ').filter(Boolean).join(', '))}" placeholder="For example 1000001, 1000002"></label>
+  <label class="fld"><span>Case numbers</span><input id="edCS" value="${esc((e.CaseNumbers||'').split('; ').filter(Boolean).join(', '))}" placeholder="For example 2026-BCSO-000001"></label>
   <label class="fld wide"><span>Summary</span><textarea id="edSum" rows="4">${esc(e.Summary)}</textarea></label>
   <label class="fld wide"><span>Actions taken</span><textarea id="edAct" rows="3">${esc(e.ActionsTaken)}</textarea></label>
   <label class="fld wide"><span>Note (optional)</span><input id="edNote" placeholder="Why the change -- e.g. checked against the original blotter"></label>
@@ -3697,12 +3876,20 @@ async function blSaveEdit(e,opt){
   const FIELDS=[['OccurredAt','Date and time'],['Shift','Shift'],['Category','Category'],['Subcategory','Subcategory'],['LocationRaw','Unit or area'],['SubjectIDs','Booking numbers'],['Summary','Summary'],['ActionsTaken','Actions taken']];
   const shown=(k,v)=>k==='OccurredAt'&&v&&!isNaN(Date.parse(v))?fmtDT(v):(v||'');
   const changes=FIELDS.filter(([k])=>String(e[k]||'')!==String(fresh[k]||'')).map(([k,l])=>({field:l,from:shown(k,e[k]),to:shown(k,fresh[k])}));
+  const refList=s=>[...new Set(String(s||'').split(/[,;\s]+/).map(x=>x.replace(/^#/,'').trim().toUpperCase()).filter(Boolean))];
+  const woIn=refList($('#edWO').value),csIn=refList($('#edCS').value);
+  const badWo=woIn.find(x=>!/^\d{5,8}$/.test(x)),badCs=csIn.find(x=>!/\d/.test(x));
+  if(badWo){err.textContent=`"${badWo}" isn't a work order number (5 to 8 digits).`;return}
+  if(badCs){err.textContent=`"${badCs}" isn't a case number.`;return}
+  const woNew=woIn.join('; '),csNew=csIn.join('; ');
+  if(woNew!==(e.WorkOrders||''))changes.push({field:'Work orders',from:e.WorkOrders||'',to:woNew});
+  if(csNew!==(e.CaseNumbers||''))changes.push({field:'Case numbers',from:e.CaseNumbers||'',to:csNew});
   const reviewedBox=$('#edReviewed'),note=$('#edNote').value.trim();
   if(!changes.length&&!(reviewedBox&&reviewedBox.checked)&&!am){closeModal();toast('No changes to save');return}
   const rec=Object.assign({},e,{
     OccurredAt:fresh.OccurredAt,Shift:fresh.Shift,Category:fresh.Category,Subcategory:fresh.Subcategory,EventType:fresh.EventType,UseOfForce:fresh.UseOfForce,IsIncident:fresh.IsIncident,
     LocationRaw:fresh.LocationRaw,LocationNorm:fresh.LocationNorm,ZoneCode:fresh.ZoneCode,SubjectIDs:fresh.SubjectIDs,Summary:fresh.Summary,ActionsTaken:fresh.ActionsTaken,
-    CandidateFind:fresh.CandidateFind,CandidateType:fresh.CandidateType,TimeRaw:hhmm,
+    CandidateFind:fresh.CandidateFind,CandidateType:fresh.CandidateType,TimeRaw:hhmm,WorkOrders:woNew,CaseNumbers:csNew,RefsManual:(woNew!==(e.WorkOrders||'')||csNew!==(e.CaseNumbers||''))?'Y':(e.RefsManual||''),
     // keep the import's notes (corrected numbers and so on), but drop problems the edit has now fixed
     QualityFlags:[...new Set((e.QualityFlags||'').split(';').filter(f=>f&&!['CategoryMissing','TimestampBad','ShiftMissing','TimestampFromReportID','LocationMissing','LocationUnmapped','MultipleUnits'].includes(f)).concat((fresh.QualityFlags||'').split(';').filter(Boolean)))].join(';')
   });
@@ -3904,11 +4091,85 @@ document.addEventListener('change',ev=>{const el=ev.target;if(!el.dataset||el.da
 document.addEventListener('input',ev=>{if(ev.target.dataset&&ev.target.dataset.pplq!==undefined){ui.ppl.q=ev.target.value;ui.ppl.limit=100;refreshLists()}});
 
 
+
+/* ---- missing blotter dates ----
+   A day is "loaded" for a blotter when at least one stored entry has that duty day. Main Jail and South Tower share a blotter;
+   the Annex has its own (ADCA numbers). A date with no entries is listed so someone can find the blotter or confirm there wasn't one. */
+const BL_SERIES=[{k:'mj',name:'Main Jail and South Tower'},{k:'anx',name:'Annex'}];
+ui.blMiss={range:'all',through:'own'};
+const ymd=d=>`${d.getFullYear()}-${pad(d.getMonth()+1,2)}-${pad(d.getDate(),2)}`;
+const blSeriesOf=e=>(/^ADCA/.test(e.ReportID||'')||/annex/i.test(e.SourceFile||''))?'anx':'mj';
+const blDutyKey=e=>e.DutyDate||(Number.isFinite(e._t)?ymd(new Date(e._t)):'');
+function blMissing(opt){
+  opt=opt||ui.blMiss;
+  const rows=(B&&B.rows)||[],have={mj:new Set(),anx:new Set()};
+  rows.forEach(e=>{const k=blDutyKey(e);if(k)have[blSeriesOf(e)].add(k)});
+  const all=[...have.mj,...have.anx].sort(),newest=all.length?all[all.length-1]:'',today=ymd(new Date());
+  return BL_SERIES.map(s=>{
+    const days=[...have[s.k]].sort();
+    if(!days.length)return Object.assign({},s,{empty:true,have:0,total:0,missing:[],ranges:[],from:'',to:''});
+    let to=days[days.length-1],from=days[0];
+    if(opt.through==='any'&&newest>to)to=newest;
+    if(opt.through==='today'&&today>to)to=today;
+    if(opt.range!=='all'){const d=new Date(to+'T12:00:00');d.setDate(d.getDate()-(+opt.range-1));const f=ymd(d);if(f>from)from=f}
+    const missing=[];let total=0;
+    for(const cur=new Date(from+'T12:00:00'),end=new Date(to+'T12:00:00');cur<=end;cur.setDate(cur.getDate()+1)){const k=ymd(cur);total++;if(!have[s.k].has(k))missing.push(k)}
+    const ranges=[];
+    missing.forEach(k=>{const last=ranges[ranges.length-1];if(last&&(new Date(k+'T12:00:00')-new Date(last.to+'T12:00:00'))<=DAY*1.5){last.to=k;last.n++}else ranges.push({from:k,to:k,n:1})});
+    return Object.assign({},s,{have:total-missing.length,total,missing,ranges,from,to});
+  });
+}
+const blDay=(k,o)=>new Date(k+'T12:00:00').toLocaleDateString('en-US',o||{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+function blMissBody(){
+  const R=blMissing();
+  return R.map(s=>{
+    if(s.empty)return `<div class="misscard"><h3>${esc(s.name)}</h3><p class="sub">No blotters loaded for this one yet.</p></div>`;
+    const pct=s.total?Math.round(s.have/s.total*100):100;
+    return `<div class="misscard"><h3>${esc(s.name)}</h3><p><b>${s.have}</b> of <b>${s.total}</b> days loaded (${pct}%), ${blDay(s.from,{month:'short',day:'numeric'})} to ${blDay(s.to,{month:'short',day:'numeric',year:'numeric'})}. ${s.missing.length?`<b>${s.missing.length}</b> missing in <b>${s.ranges.length}</b> gap${s.ranges.length===1?'':'s'}.`:'<b>No dates are missing.</b>'}</p>
+    <div class="progress" title="${pct}% of days loaded"><span style="width:${pct}%"></span></div>
+    ${s.ranges.length?`<div class="scroll"><table class="tbl"><thead><tr><th>From</th><th>To</th><th class="num">Days</th></tr></thead><tbody>${s.ranges.map(r=>`<tr><td>${blDay(r.from)}</td><td>${r.n>1?blDay(r.to):''}</td><td class="num">${r.n}</td></tr>`).join('')}</tbody></table></div>`:''}</div>`;
+  }).join('');
+}
+function blMissingSection(){
+  if(!B||!B.rows.length)return '';
+  const o=ui.blMiss,R=blMissing(),n=R.reduce((s,x)=>s+x.missing.length,0);
+  return `<section class="sec" id="bl-missing"><h2>Missing blotter dates (${n})</h2>
+  <p class="sub">Every day should have a blotter. This lists the days between the first and last blotter loaded that have no entries, for each blotter. A gap can mean a blotter that hasn't been imported or one that was never written; the date is the place to look.</p>
+  <div class="filters"><label class="inl">Look at <select data-blmiss="range"><option value="all" ${o.range==='all'?'selected':''}>Everything loaded</option><option value="30" ${o.range==='30'?'selected':''}>The last 30 days</option><option value="90" ${o.range==='90'?'selected':''}>The last 90 days</option></select></label>
+  <label class="inl">Check through <select data-blmiss="through"><option value="own" ${o.through==='own'?'selected':''}>Each blotter's newest day</option><option value="any" ${o.through==='any'?'selected':''}>The newest day in either blotter</option><option value="today" ${o.through==='today'?'selected':''}>Today</option></select></label>
+  ${n?'<button class="btn small" data-act="blMissCsv">Download the dates (.csv)</button><button class="btn small" data-act="blMissPdf">Download the report (.pdf)</button>':''}</div>
+  <div id="blMissBody">${blMissBody()}</div></section>`;
+}
+document.addEventListener('change',ev=>{const el=ev.target;if(!el.dataset||!el.dataset.blmiss)return;ui.blMiss[el.dataset.blmiss]=el.value;const b=document.getElementById('blMissBody');if(b)b.innerHTML=blMissBody();const h=document.querySelector('#bl-missing h2');if(h)h.textContent=`Missing blotter dates (${blMissing().reduce((s,x)=>s+x.missing.length,0)})`});
+function blMissCsv(){
+  const R=blMissing(),cell=v=>{v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  const lines=['Blotter,Date,Weekday,Gap from,Gap to,Days in gap'];
+  R.forEach(s=>s.ranges.forEach(r=>{const days=s.missing.filter(k=>k>=r.from&&k<=r.to);days.forEach(k=>lines.push([s.name,k,blDay(k,{weekday:'long'}),r.from,r.to,r.n].map(cell).join(',')))}));
+  blSave(`missing-blotter-dates-${ymd(new Date())}.csv`,lines.join('\r\n'));
+}
+async function blMissPdf(){
+  let jsPDF;try{jsPDF=await loadJsPDF()}catch(e){toast('The PDF library could not be loaded.');return}
+  const R=blMissing(),doc=new jsPDF({unit:'pt',format:'letter'}),mx=54,ph=792;let y=60;
+  const need=h=>{if(y+h>ph-60){doc.addPage();y=60}};
+  doc.setFont('helvetica','bold');doc.setFontSize(16);doc.text('Missing blotter dates',mx,y);y+=18;
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(90,100,110);
+  doc.text(`${FACILITY}. Generated ${new Date().toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'})}.`,mx,y);y+=12;
+  doc.text('A day counts as loaded when at least one stored entry has that duty day.',mx,y);y+=22;doc.setTextColor(20,30,40);
+  R.forEach(s=>{
+    need(60);doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text(s.name,mx,y);y+=15;doc.setFont('helvetica','normal');doc.setFontSize(10);
+    if(s.empty){doc.text('No blotters loaded.',mx,y);y+=20;return}
+    doc.text(`${s.have} of ${s.total} days loaded (${s.total?Math.round(s.have/s.total*100):100}%), ${blDay(s.from,{month:'short',day:'numeric'})} to ${blDay(s.to,{month:'short',day:'numeric',year:'numeric'})}. ${s.missing.length} missing in ${s.ranges.length} gap${s.ranges.length===1?'':'s'}.`,mx,y);y+=16;
+    s.ranges.forEach(r=>{need(14);doc.text(`${blDay(r.from)}${r.n>1?'  to  '+blDay(r.to):''}`,mx+10,y);doc.text(`${r.n} day${r.n===1?'':'s'}`,500,y,{align:'right'});y+=14});y+=14;
+  });
+  const n=doc.internal.getNumberOfPages();for(let i=1;i<=n;i++){doc.setPage(i);doc.setFontSize(8);doc.setTextColor(130,140,150);doc.text(`Page ${i} of ${n}`,558,ph-30,{align:'right'})}
+  await blSave(`missing-blotter-dates-${ymd(new Date())}.pdf`,doc.output('arraybuffer'));
+}
+
 /* ---- quick links, review order, and the find form's context ---- */
 function blQuickLinks(){
-  const un=blLocationGroups().filter(g=>g.zone==='UNMAPPED').length,rev=B.review.length,n=B.rows.length;
+  const un=blLocationGroups().filter(g=>g.zone==='UNMAPPED').length,rev=B.review.length,n=B.rows.length,miss=blMissing().reduce((s,x)=>s+x.missing.length,0);
   const link=(to,label,count,ok)=>`<button class="qlink${ok?'':' off'}" data-act="blJump" data-to="${to}">${label}<b>${count}</b></button>`;
-  return `<nav class="quick" aria-label="Jump to a section"><span class="lbl">Jump to</span>${link('bl-entries','Entries',n,true)}${link('bl-locations','Locations not in the rules',un,un>0)}${link('bl-review','Flagged for review',rev,rev>0)}</nav>`;
+  return `<nav class="quick" aria-label="Jump to a section"><span class="lbl">Jump to</span>${link('bl-entries','Entries',n,true)}${link('bl-locations','Locations not in the rules',un,un>0)}${link('bl-missing','Missing dates',miss,miss>0)}${link('bl-review','Flagged for review',rev,rev>0)}</nav>`;
 }
 const BL_REVIEW_SHORT={CategoryMissing:'No category',TimestampBad:'Time not readable',ShiftMissing:'No shift',DuplicateReportID:'Report number used twice',MultipleUnits:'More than one unit'};
 function blReviewQueue(){
@@ -3968,7 +4229,7 @@ function blOverviewPanel(){
   if(rev)items.push(`<li><button class="lnk" data-act="blGo" data-to="bl-review"><b>${rev}</b> flagged for review</button></li>`);
   if(un)items.push(`<li><button class="lnk" data-act="blGo" data-to="bl-locations"><b>${un}</b> location${un>1?'s':''} not in the rules</button></li>`);
   if(pend)items.push(`<li><button class="lnk" data-act="blGo" data-to="bl-entries"><b>${pend}</b> possible contraband find${pend>1?'s':''} waiting</button></li>`);
-  if(miss>0)items.push(`<li>Blotters loaded for <b>${cov.have}</b> of the last ${cov.days} days: <b>${miss}</b> missing. <button class="lnk" data-act="nav" data-r="analysis">See the gaps in Trends</button></li>`);
+  if(miss>0)items.push(`<li>Blotters loaded for <b>${cov.have}</b> of the last ${cov.days} days: <b>${miss}</b> missing. <button class="lnk" data-act="blGo" data-to="bl-missing">See which dates</button></li>`);
   return ovPanel('Jail blotter','blotter','Open Jail blotter',`<div class="ovt">${ovTile(rows.length,'Entries',`through ${asof}`)}${ovTile(i30,'Security incidents, 30 days',ovDelta(i30,i60))}${ovTile(c2,'Code Two, 14 days','Disturbances and fights')}${ovTile(fu,'Use of force, 14 days','Entries that say force was used')}</div>
    ${items.length?`<ul class="attn">${items.join('')}</ul>`:'<p class="sub">Nothing needs attention: no flagged entries, every location recognised, and every recent day has a blotter.</p>'}
    <h3>Security incidents per week</h3>${columns(wk.v,wk.labels,'Security incidents per week, last 8 weeks',proj)}${proj!=null?`<p class="sub">Next week, projected: <b>${proj}</b>. Windows count back from ${asof}, the latest entry loaded.</p>`:''}`);
@@ -4117,6 +4378,56 @@ function subjRegenDlg(sid,opt){
     if(ks.includes('zone'))s.zone=p.zone;
     log('Regenerated subject profile from the blotter',`${s.id}: ${ks.join(', ')||'nothing changed'}`);
     closeModal();render();renderDrawer();toast(ks.length?'Profile updated from the blotter':'Left as it was');
+  };
+}
+
+/* ---- back up everything, restore anywhere ----
+   One file carries a copy's records and its stored blotter entries, so the published app, a downloaded file and a
+   GitHub Pages copy can be made to hold the same data. Each copy otherwise keeps its own, in its own browser storage. */
+async function backupAll(){
+  const intel=canIntel();let entries=[],meta=[],prea=[];
+  if(blStorageOK){try{entries=await blGetAll('entries');meta=(await blGetAll('meta')).filter(m=>m.key!=='wipeTag');prea=await blGetAll('preaLog')}catch(e){}}
+  if(!entries.length&&B&&B.rows)entries=B.rows.map(e=>{const o={};Object.keys(e).forEach(k=>{if(k[0]!=='_')o[k]=e[k]});return o});
+  const state=intel?S:Object.assign({},S,{reports:[],sources:[],taskings:[]});
+  const data={kind:'dims-backup',version:APP_VERSION,created:new Date().toISOString(),by:roleInfo().name,complete:intel,state,blotter:{entries,meta,preaLog:prea}};
+  log('Backed up everything',`${entries.length} blotter entries${intel?'':', without Intel reports and Sources'}`);
+  await blSave(`dims-backup-${ymd(new Date())}.json`,JSON.stringify(data));
+}
+function restoreDlg(){
+  if(!canIntel()){toast('Restoring a backup is for intel personnel only');return}
+  openModal(`<h2>Restore a backup</h2><p>Choose a file made with <b>Back up everything</b> in any copy of DIMS: the published app, a downloaded file or a GitHub Pages copy. Its records and blotter entries <b>replace</b> what this copy holds now.</p>
+  <label class="fld wide"><span>Backup file (.json)</span><input type="file" id="rsFile" accept=".json,application/json"></label><div id="rsInfo" class="sub" style="margin:8px 0"></div><div class="err" id="rsErr" role="alert"></div>
+  <div class="acts"><button class="btn primary" id="rsGo" disabled>Replace this copy's data</button><button class="btn" data-act="closeModal">Cancel</button></div>`);
+  let bk=null;
+  $('#rsFile').onchange=async ev=>{
+    $('#rsErr').textContent='';$('#rsInfo').textContent='';$('#rsGo').disabled=true;bk=null;
+    const f=ev.target.files[0];if(!f)return;
+    try{
+      const o=JSON.parse(await f.text());
+      if(o&&o.kind==='dims-backup'&&o.state&&o.blotter)bk=o;
+      else if(o&&o.v===1&&Array.isArray(o.reports))bk={kind:'records-only',state:o,blotter:null};
+      else throw new Error('not a DIMS backup');
+    }catch(e){$('#rsErr').textContent='That file is not a DIMS backup.';return}
+    const st=bk.state,n=k=>(st[k]||[]).length,ne=bk.blotter?bk.blotter.entries.length:0;
+    $('#rsInfo').innerHTML=`${bk.kind==='records-only'?'An older records export (no blotter entries).':`Made ${esc(new Date(bk.created).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}))} by ${esc(bk.by||'unknown')} with version ${esc(bk.version||'?')}.`} It holds ${n('reports')} intel reports, ${n('contraband')} contraband finds, ${n('vulns')} facility vulnerabilities, ${n('subjects')} subjects and ${ne} blotter entries.${bk.complete===false?' <b>It was made by a role without intel access, so it has no intel reports or sources.</b>':''}${bk.kind==='records-only'?' This copy\u2019s blotter entries are left as they are.':''}`;
+    $('#rsGo').disabled=false;
+  };
+  $('#rsGo').onclick=async()=>{
+    if(!bk)return;$('#rsGo').disabled=true;$('#rsGo').textContent='Restoring…';
+    S=migrateState(bk.state);SUBJ_IDX=null;persist();
+    if(bk.blotter){
+      const es=bk.blotter.entries||[];
+      await blClearAll();
+      if(blStorageOK){
+        if(es.length)await blPutAll('entries',es);
+        const meta=(bk.blotter.meta||[]).filter(m=>m&&m.key&&m.key!=='wipeTag');if(meta.length)await blPutAll('meta',meta);
+        if((bk.blotter.preaLog||[]).length)await blPutAll('preaLog',bk.blotter.preaLog);
+        if(!(await blLoadFromDB()))blSetEmpty();
+      }else{blSetEmpty();if(es.length)blMergeInMemory(es.map(blReparse),[],'restored')}
+    }
+    syncZones();if(B&&B.rows)B.zones=BLC.zoneTable(B.rows);
+    log('Restored a backup',`${(S.reports||[]).length} reports, ${(B&&B.rows?B.rows.length:0)} blotter entries`);
+    ui.stack=[];ui.net.gen=null;ui.net.sig='';ui.net.pos={};ui.zone=null;closeModal();closeDrawer();go('overview');toast('Backup restored');
   };
 }
 
@@ -4311,11 +4622,15 @@ Object.assign(A,{
     $('#blClrGo').onclick=async()=>{await blClearAll();await blSetMeta('wipeTag',BL_WIPE_TAG);closeModal();blSetEmpty();go('blotter');toast('Blotter entries cleared')};},
   blEdit(d){blEditDlg(d.id)},
   blAmend(){blAmendDlg()},
+  backupAll(){backupAll()},
+  restoreDlg(){restoreDlg()},
+  blMissCsv(){blMissCsv()},
+  blMissPdf(){blMissPdf()},
   subjRegen(d){subjRegenDlg(d.id)},
   blAddTo(d){blAddToDlg(d.id)},
   blAddArea(d){blOpenAreaForm(d.k,d.id,false)},
   cbLinkPeople(d){const e=blFind(d.id);if(!e)return;let n=0,miss=0;blPeopleOf(e).forEach(p=>{const s=subjByBk(p.bk);const box=s&&document.querySelector(`#fbody [name=subjects][value="${s.id}"]`);if(box){box.checked=true;box.parentElement.style.display='';n++}else miss++});toast(n?`${n} linked${miss?`; ${miss} named in the entry ${miss===1?'has':'have'} no subject yet`:''}`:'None of the people named have a subject yet')},
-  blJump(d){const el=document.getElementById(d.to);if(!el){toast(d.to==='bl-review'?'Nothing is flagged for review.':d.to==='bl-locations'?'Every location written in the stored blotters is recognised.':'That section is not on the page.');return}el.scrollIntoView({behavior:'smooth',block:'start'})},
+  blJump(d){const el=document.getElementById(d.to);if(!el){toast(d.to==='bl-review'?'Nothing is flagged for review.':d.to==='bl-locations'?'Every location written in the stored blotters is recognised.':d.to==='bl-missing'?'No blotter dates are missing.':'That section is not on the page.');return}el.scrollIntoView({behavior:'smooth',block:'start'})},
   blGo(d){go('blotter');setTimeout(()=>{const el=document.getElementById(d.to);if(el)el.scrollIntoView({block:'start'})},80)},
   blSortReport(d){const f=ui.f.blotter;f.sort='report';f.dir=d.dir;f.limit=150;render()},
   blRevSort(){ui.bl.revDir=ui.bl.revDir==='desc'?'asc':'desc';render()},
